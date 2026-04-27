@@ -8,6 +8,12 @@ import { conditionOptions } from "../data/conditions";
 import SmartBrandInput from "../components/SmartBrandInput";
 import MultiColorSelect from "../components/MultiColorSelect";
 
+const formatMoney = (value) =>
+  typeof value === "number" ? `${value.toFixed(2)} ₽` : "—";
+
+const formatScore = (value) =>
+  typeof value === "number" ? value.toFixed(4) : "—";
+
 function SellPage({
   sellForm,
   handleCreateAuction,
@@ -22,7 +28,30 @@ function SellPage({
   selectedCategory,
   availableSubcategories,
   handleToggleColor,
+  handleApplyPricingRecommendation,
 }) {
+  const analysis = sellResult?.analysis || {};
+  const formulaExplanation =
+    sellResult?.formula_explanation || analysis.formula_explanation || {};
+
+  const scoreRows = [
+    ["Q_b", "Бренд", analysis.brand_score],
+    ["Q_c", "Состояние", analysis.condition_score],
+    ["Q_v", "Винтажность", analysis.vintage_score],
+    ["Q_r", "Редкость", analysis.rarity_score],
+    ["Q", "Подтверждённая ценность", analysis.confirmed_value_score],
+    ["A", "Аукционная привлекательность", analysis.auction_attractiveness],
+  ];
+
+  const formulaRows = [
+    ["Q", formulaExplanation.confirmed_value_score],
+    ["A", formulaExplanation.auction_attractiveness],
+    ["P_base", formulaExplanation.base_price],
+    ["P_start", formulaExplanation.start_price],
+    ["Step", formulaExplanation.bid_step],
+    ["E[P_final]", formulaExplanation.expected_final_price],
+  ].filter(([, formula]) => Boolean(formula));
+
   return (
     <>
       <section className="hero-banner">
@@ -50,6 +79,15 @@ function SellPage({
                 value={sellForm.title}
                 onChange={handleSellTopLevelChange}
                 placeholder="Например: Винтажный бомбер"
+              />
+            </div>
+
+            <div className="field">
+              <label>Продавец</label>
+              <input
+                name="seller_name"
+                value={sellForm.seller_name}
+                onChange={handleSellTopLevelChange}
               />
             </div>
 
@@ -277,43 +315,95 @@ function SellPage({
                 <div className="auction-stats-grid">
                   <div className="stat-box">
                     <span>Базовая цена</span>
-                    <strong>{sellResult.base_price} ₽</strong>
+                    <strong>{formatMoney(sellResult.base_price)}</strong>
                   </div>
                   <div className="stat-box">
                     <span>Стартовая цена</span>
-                    <strong>{sellResult.recommended_start_price} ₽</strong>
+                    <strong>{formatMoney(sellResult.recommended_start_price)}</strong>
                   </div>
                   <div className="stat-box">
                     <span>Шаг ставки</span>
-                    <strong>{sellResult.recommended_bid_step} ₽</strong>
+                    <strong>{formatMoney(sellResult.recommended_bid_step)}</strong>
                   </div>
                   <div className="stat-box">
                     <span>Прогноз финальной цены</span>
-                    <strong>{sellResult.expected_final_price} ₽</strong>
+                    <strong>{formatMoney(sellResult.expected_final_price)}</strong>
                   </div>
                 </div>
 
                 <div className="result-box">
-                  <h4>AI-анализ</h4>
-                  <ul className="score-list">
-                    <li>Brand score: {sellResult.analysis.brand_score}</li>
-                    <li>Vintage score: {sellResult.analysis.vintage_score}</li>
-                    <li>Condition score: {sellResult.analysis.condition_score}</li>
-                    <li>Value score: {sellResult.analysis.value_score}</li>
-                    <li>Attractiveness: {sellResult.attractiveness}</li>
-                  </ul>
+                  <h4>Математический разбор</h4>
+                  <div className="score-grid">
+                    {scoreRows.map(([code, label, value]) => (
+                      <div className="score-card" key={code}>
+                        <span>{code}</span>
+                        <strong>{formatScore(value)}</strong>
+                        <p>{label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="result-box">
+                  <h4>Формулы модели</h4>
+                  <div className="formula-list">
+                    {formulaRows.map(([code, formula]) => (
+                      <div className="formula-row" key={code}>
+                        <span>{code}</span>
+                        <p>{formula}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="result-box">
                   <h4>Рекомендация системы</h4>
                   <p>
                     Для этого товара рекомендуется запускать аукцион со стартовой
-                    цены <strong>{sellResult.recommended_start_price} ₽</strong>,
+                    цены <strong>{formatMoney(sellResult.recommended_start_price)}</strong>,
                     использовать шаг ставки{" "}
-                    <strong>{sellResult.recommended_bid_step} ₽</strong> и
+                    <strong>{formatMoney(sellResult.recommended_bid_step)}</strong> и
                     ориентироваться на итоговую цену около{" "}
-                    <strong>{sellResult.expected_final_price} ₽</strong>.
+                    <strong>{formatMoney(sellResult.expected_final_price)}</strong>.
                   </p>
+                </div>
+
+                <div className="result-box publish-settings-box">
+                  <h4>Финальные параметры публикации</h4>
+                  <p>
+                    Рекомендации можно принять как есть или вручную скорректировать
+                    стартовую цену и шаг ставки перед запуском.
+                  </p>
+
+                  <div className="field-row">
+                    <div className="field">
+                      <label>Финальная стартовая цена</label>
+                      <input
+                        type="number"
+                        name="start_price"
+                        value={sellForm.start_price}
+                        onChange={handleSellTopLevelChange}
+                      />
+                    </div>
+
+                    <div className="field">
+                      <label>Финальный шаг ставки</label>
+                      <input
+                        type="number"
+                        name="bid_step_override"
+                        value={sellForm.bid_step_override || ""}
+                        onChange={handleSellTopLevelChange}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="secondary-btn full"
+                    onClick={handleApplyPricingRecommendation}
+                  >
+                    Вернуть рекомендации модели
+                  </button>
                 </div>
                 {sellResult && (
                   <button

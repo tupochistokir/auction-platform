@@ -6,10 +6,11 @@ from app.api.lots import router as lots_router
 from app.api.pricing import router as pricing_router
 from app.api.auctions import router as auctions_router
 
-from app.db.database import engine, Base
+from app.db.database import engine, Base, ensure_sqlite_schema
 from app.db import models
 
 Base.metadata.create_all(bind=engine)
+ensure_sqlite_schema()
 
 app = FastAPI(title="Auction Platform API")
 

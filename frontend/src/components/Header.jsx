@@ -1,4 +1,4 @@
-function Header({ page, setPage }) {
+function Header({ page, setPage, currentUserName, setCurrentUserName }) {
   return (
     <header className="topbar">
       <div>
@@ -7,6 +7,14 @@ function Header({ page, setPage }) {
       </div>
 
       <div className="topbar-actions">
+        <div className="account-switcher">
+          <span>Аккаунт</span>
+          <input
+            value={currentUserName}
+            onChange={(e) => setCurrentUserName(e.target.value)}
+          />
+        </div>
+
         <button
           className={`nav-btn ${page === "catalog" ? "active" : ""}`}
           onClick={() => setPage("catalog")}
@@ -21,7 +29,12 @@ function Header({ page, setPage }) {
           Продать товар
         </button>
 
-        <button className="secondary-btn">Профиль</button>
+        <button
+          className={`nav-btn ${page === "profile" ? "active" : ""}`}
+          onClick={() => setPage("profile")}
+        >
+          Профиль
+        </button>
       </div>
     </header>
   );

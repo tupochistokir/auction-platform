@@ -22,3 +22,22 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtual env
+venv/
+
+# Database
+*.db
+
+# Env
+.env
+
+# Frontend
+node_modules/
+
+# OS
+.DS_Store
