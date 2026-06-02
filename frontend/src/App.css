@@ -7803,3 +7803,207 @@ button:active {
     padding-inline: 8px;
   }
 }
+
+/* Published-site polish: persistent product view, balanced header, readable product actions. */
+.topbar {
+  align-items: stretch !important;
+  display: grid !important;
+  gap: 18px !important;
+  grid-template-columns: 1fr !important;
+  padding: clamp(22px, 3vw, 34px) clamp(18px, 3vw, 40px) !important;
+}
+
+.topbar-main-row {
+  align-items: center;
+  display: grid;
+  gap: 22px;
+  grid-template-columns: minmax(250px, 1fr) minmax(0, auto);
+  width: 100%;
+}
+
+.topbar-ornament,
+.topbar-actions {
+  display: none !important;
+}
+
+.brand-mark {
+  min-width: 0 !important;
+  text-align: left !important;
+}
+
+.primary-nav {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.primary-nav .nav-btn,
+.account-bar .nav-btn,
+.account-bar .logout-btn {
+  align-items: center !important;
+  border-radius: 8px !important;
+  display: inline-flex !important;
+  font-size: clamp(14px, 1.2vw, 17px) !important;
+  font-weight: 800 !important;
+  justify-content: center !important;
+  letter-spacing: 0 !important;
+  line-height: 1.15 !important;
+  min-height: 46px !important;
+  min-width: 0 !important;
+  padding: 0 18px !important;
+  text-align: center !important;
+  white-space: normal !important;
+}
+
+.primary-nav .nav-btn {
+  flex: 0 1 170px;
+}
+
+.account-bar {
+  align-items: center;
+  border-top: 1px solid rgba(116, 73, 44, 0.2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  min-width: 0;
+  padding-top: 14px;
+  width: 100%;
+}
+
+.account-id {
+  align-items: center;
+  background: rgba(255, 248, 239, 0.72);
+  border: 1px solid rgba(116, 73, 44, 0.2);
+  border-radius: 8px;
+  color: #1f120b;
+  display: inline-flex;
+  gap: 10px;
+  max-width: min(100%, 280px);
+  min-height: 48px;
+  min-width: 0;
+  padding: 6px 12px 6px 8px;
+}
+
+.account-name {
+  font-weight: 900;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-nav-btn {
+  flex: 0 1 160px;
+}
+
+.account-bar .logout-btn {
+  flex: 0 1 116px;
+}
+
+.product-media-row {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.product-side-signals {
+  display: grid !important;
+  gap: 12px !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  grid-template-rows: none !important;
+}
+
+.product-side-signals > button,
+.product-side-signals .signal-static {
+  align-content: center !important;
+  display: grid !important;
+  gap: 6px !important;
+  grid-template-columns: 1fr !important;
+  justify-items: center !important;
+  min-height: 82px !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  padding: 13px 12px !important;
+  text-align: center !important;
+}
+
+.product-signal-button,
+.product-side-signals .signal-static {
+  white-space: normal !important;
+}
+
+.product-side-signals span {
+  display: block !important;
+  font-size: 14px !important;
+  line-height: 1.18 !important;
+  max-width: 100% !important;
+  overflow-wrap: anywhere !important;
+  text-align: center !important;
+  white-space: normal !important;
+}
+
+.product-side-signals strong,
+.product-signal-button strong,
+.product-side-signals .signal-static strong {
+  font-size: clamp(24px, 2.1vw, 32px) !important;
+  justify-self: center !important;
+  line-height: 1 !important;
+  text-align: center !important;
+}
+
+@media (max-width: 900px) {
+  .topbar-main-row {
+    grid-template-columns: 1fr;
+  }
+
+  .primary-nav,
+  .account-bar {
+    justify-content: stretch;
+  }
+
+  .primary-nav .nav-btn,
+  .account-nav-btn,
+  .account-bar .logout-btn {
+    flex: 1 1 150px;
+  }
+}
+
+@media (max-width: 620px) {
+  .topbar {
+    gap: 14px !important;
+    padding: 18px 12px !important;
+  }
+
+  .brand-mark h1 {
+    font-size: clamp(36px, 15vw, 58px) !important;
+  }
+
+  .primary-nav {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: 1fr;
+  }
+
+  .primary-nav .nav-btn,
+  .account-nav-btn,
+  .account-bar .logout-btn {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .account-bar {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .account-id {
+    max-width: none;
+    width: 100%;
+  }
+
+  .product-side-signals {
+    grid-template-columns: 1fr !important;
+  }
+}

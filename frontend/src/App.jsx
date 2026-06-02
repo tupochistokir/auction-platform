@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import Header from "./components/Header";
 import CatalogPage from "./pages/CatalogPage";
@@ -12,8 +12,32 @@ import OffersPage from "./pages/OffersPage";
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 const AUTH_TOKEN_KEY = "auction_auth_token";
+const AUCTION_URL_PARAM = "auction";
 const MAX_PRICE_INPUT = 9999999;
 const MAX_ITEM_AGE_INPUT = 120;
+
+const getAuctionIdFromUrl = () => {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get(AUCTION_URL_PARAM) || "";
+};
+
+const setAuctionIdInUrl = (auctionId) => {
+  if (typeof window === "undefined" || !auctionId) return;
+
+  const url = new URL(window.location.href);
+  url.searchParams.set(AUCTION_URL_PARAM, String(auctionId));
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+};
+
+const clearAuctionIdFromUrl = () => {
+  if (typeof window === "undefined") return;
+
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has(AUCTION_URL_PARAM)) return;
+
+  url.searchParams.delete(AUCTION_URL_PARAM);
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+};
 
 const toDateTimeLocalValue = (date) => {
   const timezoneOffset = date.getTimezoneOffset() * 60000;
@@ -101,6 +125,7 @@ function App() {
   const [favoritesError, setFavoritesError] = useState("");
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [avatarError, setAvatarError] = useState("");
+  const restoredAuctionKeyRef = useRef("");
 
   const [filters, setFilters] = useState({
     brand: "",
@@ -226,15 +251,16 @@ function App() {
       }
 
       const data = await response.json();
-      setAuctions(data.auctions);
+      const loadedAuctions = Array.isArray(data.auctions) ? data.auctions : [];
+      setAuctions(loadedAuctions);
 
       setSelectedAuction((currentAuction) => {
-        if (!currentAuction && data.auctions.length > 0) {
-          return data.auctions[0];
+        if (!currentAuction && loadedAuctions.length > 0) {
+          return loadedAuctions[0];
         }
 
         if (currentAuction) {
-          return data.auctions.find((a) => a.id === currentAuction.id) || currentAuction;
+          return loadedAuctions.find((a) => a.id === currentAuction.id) || currentAuction;
         }
 
         return currentAuction;
@@ -246,7 +272,7 @@ function App() {
     }
   }, []);
 
-  const loadAuctionById = async (auctionId, sellerView = false) => {
+  const loadAuctionById = useCallback(async (auctionId, sellerView = false) => {
     try {
       setBidError("");
       setSuccessMessage("");
@@ -270,10 +296,12 @@ function App() {
       setOfferAmount(String(Math.round(Number(data.expected_final_price || minBid))));
       setBidRecommendation(null);
       setOfferResult(null);
+      return data;
     } catch {
       setBidError("Не удалось открыть аукцион");
+      return null;
     }
-  };
+  }, [authToken]);
 
   const loadProfile = useCallback(async () => {
     if (!authUser || !currentUserName.trim()) {
@@ -357,6 +385,19 @@ function App() {
   useEffect(() => {
     loadAuctions();
   }, [loadAuctions]);
+
+  useEffect(() => {
+    const auctionId = getAuctionIdFromUrl();
+    if (!auctionId) return;
+
+    const restoreKey = `${auctionId}:${authToken || "guest"}`;
+    if (restoredAuctionKeyRef.current === restoreKey) return;
+
+    restoredAuctionKeyRef.current = restoreKey;
+    setPage("catalog");
+    setCatalogView("product");
+    loadAuctionById(auctionId, Boolean(authToken));
+  }, [authToken, loadAuctionById]);
 
   useEffect(() => {
     if ((page === "profile" || page === "offers") && authUser) {
@@ -465,6 +506,7 @@ function App() {
     try {
       await fetch(`${API_URL}/auth/logout`, { method: "POST" });
     } finally {
+      clearAuctionIdFromUrl();
       localStorage.removeItem(AUTH_TOKEN_KEY);
       setAuthToken("");
       setAuthUser(null);
@@ -479,18 +521,27 @@ function App() {
   };
 
   const handleSelectAuction = async (auction) => {
-    await loadAuctionById(auction.id, false);
+    const loadedAuction = await loadAuctionById(auction.id, false);
+    if (!loadedAuction) return;
+
+    setAuctionIdInUrl(loadedAuction.id);
     setCatalogView("product");
   };
 
   const handleOpenAuctionFromProfile = async (auction) => {
-    await loadAuctionById(auction.id, true);
+    const loadedAuction = await loadAuctionById(auction.id, true);
+    if (!loadedAuction) return;
+
+    setAuctionIdInUrl(loadedAuction.id);
     setCatalogView("product");
     setPage("catalog");
   };
 
   const handleOpenFavoriteAuction = async (auction) => {
-    await loadAuctionById(auction.id, false);
+    const loadedAuction = await loadAuctionById(auction.id, false);
+    if (!loadedAuction) return;
+
+    setAuctionIdInUrl(loadedAuction.id);
     setCatalogView("product");
     setPage("catalog");
   };
@@ -1048,10 +1099,12 @@ function App() {
         throw new Error(getApiErrorMessage(data, "Ошибка создания аукциона"));
       }
 
+      setAuctionIdInUrl(data.auction.id);
       setSelectedAuction(data.auction);
       setPage("catalog");
       setCatalogView("product");
       await loadAuctions();
+      await loadAuctionById(data.auction.id, true);
       await loadProfile();
       alert("Аукцион опубликован");
     } catch (err) {
@@ -1191,27 +1244,32 @@ function App() {
   };
 
   const goToCatalog = () => {
+    clearAuctionIdFromUrl();
     setAuthError("");
     setPage("catalog");
     setCatalogView("grid");
   };
 
   const goToSell = () => {
+    clearAuctionIdFromUrl();
     setAuthError("");
     setPage("sell");
   };
 
   const goToProfile = () => {
+    clearAuctionIdFromUrl();
     setAuthError("");
     setPage("profile");
   };
 
   const goToFavorites = () => {
+    clearAuctionIdFromUrl();
     setAuthError("");
     setPage("favorites");
   };
 
   const goToOffers = () => {
+    clearAuctionIdFromUrl();
     setAuthError("");
     setPage("offers");
   };
@@ -1278,7 +1336,10 @@ function App() {
               offerError={offerError}
               offerResult={offerResult}
               handleLotSignal={handleLotSignal}
-              onBack={() => setCatalogView("grid")}
+              onBack={() => {
+                clearAuctionIdFromUrl();
+                setCatalogView("grid");
+              }}
             />
           )
         )}
@@ -1305,7 +1366,7 @@ function App() {
               handleDeleteAuction={handleDeleteAuction}
               handleUploadAuctionImages={handleUploadAuctionImages}
               handleAcceptBid={handleAcceptBid}
-              goToSell={() => setPage("sell")}
+              goToSell={goToSell}
               goToOffers={goToOffers}
             />
           ) : (
