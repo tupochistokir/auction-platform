@@ -3,19 +3,32 @@ import os
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 
+RENDER_DATA_DIR = "/var/data"
+RENDER_SQLITE_PATH = os.path.join(RENDER_DATA_DIR, "auction.db")
+LOCAL_SQLITE_URLS = {"", "sqlite:///./auction.db", "sqlite:///auction.db"}
+
+
+def _render_database_url() -> str:
+    os.makedirs(RENDER_DATA_DIR, exist_ok=True)
+    return f"sqlite:///{RENDER_SQLITE_PATH}"
+
+
+def _is_render_ephemeral_sqlite(database_url: str) -> bool:
+    return database_url.startswith("sqlite") and "/var/data/" not in database_url
+
+
 def _default_database_url() -> str:
-    if os.getenv("RENDER") and os.path.isdir("/var/data"):
-        return "sqlite:////var/data/auction.db"
+    if os.getenv("RENDER"):
+        return _render_database_url()
     return "sqlite:///./auction.db"
 
 
 _configured_database_url = os.getenv("DATABASE_URL", "").strip()
-if (
-    os.getenv("RENDER")
-    and os.path.isdir("/var/data")
-    and _configured_database_url in {"", "sqlite:///./auction.db"}
+if os.getenv("RENDER") and (
+    _configured_database_url in LOCAL_SQLITE_URLS
+    or _is_render_ephemeral_sqlite(_configured_database_url)
 ):
-    DATABASE_URL = "sqlite:////var/data/auction.db"
+    DATABASE_URL = _render_database_url()
 else:
     DATABASE_URL = _configured_database_url or _default_database_url()
 if DATABASE_URL.startswith("postgres://"):
