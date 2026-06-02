@@ -1,0 +1,5 @@
+condition,condition_score
+excellent,1.00
+good,0.75
+normal,0.55
+bad,0.30

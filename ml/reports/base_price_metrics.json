@@ -1,0 +1,58 @@
+{
+  "target": "price",
+  "best_model": "linear_regression_log_target",
+  "test_size": 0.2,
+  "random_state": 42,
+  "train_rows": 492164,
+  "test_rows": 123041,
+  "metric_rows": 100000,
+  "dataset": {
+    "source_type": "real_marketplace_dataset",
+    "dataset_name": "Mercari Price Suggestion Challenge",
+    "source_file": "C:\\Users\\кири\\Desktop\\Auction_Platform\\data\\external\\mercari\\train.tsv",
+    "processed_path": "C:\\Users\\кири\\Desktop\\Auction_Platform\\data\\processed\\train.csv",
+    "raw_rows_scanned": 1482535,
+    "rows_before_filtering": 1482535,
+    "rows_after_filtering": 615205,
+    "removed_new_items_count": 701736,
+    "filtering_note": "Fully new / new-with-tags Mercari items are excluded from the base resale training dataset. The model is trained on used resale items; has_tag remains a seller-side feature for original store tag evidence.",
+    "processed_rows": 615205,
+    "currency": "RUB",
+    "original_currency": "USD",
+    "usd_to_rub": 90.0,
+    "auction_dynamics_available": false,
+    "is_synthetic": false,
+    "category_counts": {
+      "bag": 41326,
+      "bomber": 838,
+      "cap": 35475,
+      "coat": 21361,
+      "hoodie": 39439,
+      "jacket": 11851,
+      "jeans": 33432,
+      "other": 204527,
+      "shirt": 72308,
+      "sneakers": 98995,
+      "tshirt": 55653
+    },
+    "notes": [
+      "Mercari contains marketplace sale prices, not auction bid history.",
+      "Age is unavailable in the source and is stored as 0.",
+      "Views, likes, favorites and bids are unavailable and are stored as 0."
+    ]
+  },
+  "target_transform": "log1p/expm1",
+  "random_forest_train_cap": 50000,
+  "metrics": {
+    "linear_regression_log_target": {
+      "MAE": 1086.1896,
+      "RMSE": 2362.3467,
+      "R2": 0.2718
+    },
+    "random_forest_log_target": {
+      "MAE": 1176.3341,
+      "RMSE": 2522.8042,
+      "R2": 0.1695
+    }
+  }
+}

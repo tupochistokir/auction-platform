@@ -1,0 +1,47 @@
+{
+  "formula": "Q = w_brand*brand_score + w_condition*condition_score + w_rarity*rarity_score + w_vintage*vintage_score",
+  "price_formula": "predicted_price = base_price * (1 + 0.25 * Q)",
+  "constraints": {
+    "non_negative": true,
+    "sum_weights": 1.0,
+    "grid_step": 0.05
+  },
+  "target": "price",
+  "base_price_source": "category_median_price",
+  "rows_used": 100000,
+  "best_mae": 1285.7337,
+  "mean_q": 0.0,
+  "raw_grid_search_weights": {
+    "brand": 0.0,
+    "condition": 0.0,
+    "rarity": 0.0,
+    "vintage": 1.0
+  },
+  "recommended_weights": {
+    "brand": 0.3,
+    "condition": 0.25,
+    "rarity": 0.25,
+    "vintage": 0.2
+  },
+  "calibration_status": "limited_not_applied",
+  "feature_variance": {
+    "brand": 0.166018,
+    "condition": 0.136579,
+    "rarity": 0.07988,
+    "vintage": 0.0
+  },
+  "degenerate_features": [
+    "vintage"
+  ],
+  "limitations": [
+    "The current marketplace dataset does not contain enough independent variation for all Q components. In particular, Mercari preprocessing does not provide real item age, so vintage_score is not a reliable calibration signal."
+  ],
+  "current_expert_weights": {
+    "brand": 0.3,
+    "condition": 0.25,
+    "rarity": 0.25,
+    "vintage": 0.2
+  },
+  "interpretation": "The file does not automatically replace expert weights in math_core.py. When calibration_status is limited_not_applied, the grid-search result is treated as a diagnostic rather than a production replacement, because the current dataset cannot justify changing all expert weights.",
+  "generated_at": "2026-05-21T14:21:07.798324+00:00"
+}

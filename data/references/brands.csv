@@ -1,0 +1,13 @@
+brand,brand_score,segment
+nike,0.82,mass_premium
+adidas,0.76,mass_premium
+levi's,0.88,vintage_premium
+carhartt,0.86,vintage_premium
+stone island,0.96,premium
+ralph lauren,0.80,mass_premium
+tommy hilfiger,0.74,mass_premium
+zara,0.48,mass
+h&m,0.38,mass
+uniqlo,0.46,mass
+unknown,0.20,unknown
+no_name,0.12,no_name

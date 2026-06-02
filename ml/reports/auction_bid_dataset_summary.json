@@ -1,0 +1,20 @@
+{
+  "dataset_name": "Online Auctions Dataset",
+  "source_path": "C:\\Users\\кири\\Desktop\\Auction_Platform\\data\\external\\online_auctions\\auction.csv",
+  "bid_rows": 10681,
+  "auction_rows": 628,
+  "items": {
+    "Palm Pilot M515 PDA": 343,
+    "Xbox game console": 149,
+    "Cartier wristwatch": 136
+  },
+  "currency": "RUB",
+  "original_currency": "USD",
+  "usd_to_rub": 90.0,
+  "outputs": {
+    "bid_history": "C:\\Users\\кири\\Desktop\\Auction_Platform\\data\\processed\\auction_bid_history.csv",
+    "lot_dynamics": "C:\\Users\\кири\\Desktop\\Auction_Platform\\data\\processed\\auction_lot_dynamics.csv"
+  },
+  "usage": "Bid-level rows support auction graphs and anti-sniping analysis; auction-level rows train the final price model.",
+  "generated_at": "2026-05-07T07:04:14.790001+00:00"
+}

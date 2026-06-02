@@ -1,0 +1,55 @@
+{
+  "dataset_name": "Online Auctions buyer behavior dataset",
+  "raw_rows": 628,
+  "dataset_rows": 408,
+  "filter": {
+    "min_start_price_rub": 300.0,
+    "reason": "Rows with near-zero opening bids are excluded from percentage uplift estimation because they create non-representative ratios."
+  },
+  "target": "final_price / start_price",
+  "features": [
+    "bids_count",
+    "bidders_count",
+    "last_bid_time_fraction",
+    "current_price / start_price"
+  ],
+  "quantiles": {
+    "final_to_start_p10": 1.03625,
+    "final_to_start_p25": 1.204643,
+    "final_to_start_p50": 2.140518,
+    "final_to_start_p75": 6.098558,
+    "final_to_start_p90": 22.987007,
+    "bids_count_p50": 11.0,
+    "bids_count_p90": 26.0,
+    "bidders_count_p50": 6.0,
+    "bidders_count_p90": 12.0,
+    "last_bid_time_fraction_p50": 0.999134
+  },
+  "bid_bucket_lift_medians": {
+    "0": 1.0,
+    "1": 1.0,
+    "2-3": 1.0417,
+    "4-6": 1.193,
+    "7-12": 1.6667,
+    "13+": 5.6357
+  },
+  "bid_bucket_counts": {
+    "0": 0,
+    "1": 20,
+    "2-3": 39,
+    "4-6": 58,
+    "7-12": 111,
+    "13+": 180
+  },
+  "domain_transfer": {
+    "matched_categories": [
+      "accessories",
+      "other"
+    ],
+    "matched_category_weight": 0.7,
+    "clothing_category_weight": 0.35,
+    "reason": "The dataset contains PDA, game console and wristwatch auctions. For clothing it is used as buyer-behavior evidence, not as a direct clothing price model."
+  },
+  "interpretation": "The platform uses robust median final/start ratios by bid-count bucket. This keeps the forecast tied to actual buyer behavior while avoiding mean-based distortion from near-zero opening bids.",
+  "generated_at": "2026-05-07T15:00:19.189817+00:00"
+}

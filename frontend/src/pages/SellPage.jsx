@@ -8,8 +8,10 @@ import { conditionOptions } from "../data/conditions";
 import SmartBrandInput from "../components/SmartBrandInput";
 import MultiColorSelect from "../components/MultiColorSelect";
 
-const formatMoney = (value) =>
-  typeof value === "number" ? `${value.toFixed(2)} ₽` : "—";
+const formatMoney = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? `${Math.round(number).toLocaleString("ru-RU")} ₽` : "—";
+};
 
 const formatScore = (value) =>
   typeof value === "number" ? value.toFixed(4) : "—";
@@ -40,12 +42,14 @@ function SellPage({
     ["Q_v", "Винтажность", analysis.vintage_score],
     ["Q_r", "Редкость", analysis.rarity_score],
     ["Q", "Подтверждённая ценность", analysis.confirmed_value_score],
-    ["A", "Аукционная привлекательность", analysis.auction_attractiveness],
+    ["A_pre", "Потенциал до старта", analysis.auction_potential_pre],
+    ["A_live", "Активность торгов", analysis.auction_activity_live ?? analysis.auction_attractiveness],
   ];
 
   const formulaRows = [
     ["Q", formulaExplanation.confirmed_value_score],
-    ["A", formulaExplanation.auction_attractiveness],
+    ["A_pre", formulaExplanation.auction_potential_pre],
+    ["A_live", formulaExplanation.auction_activity_live || formulaExplanation.auction_attractiveness],
     ["P_base", formulaExplanation.base_price],
     ["P_start", formulaExplanation.start_price],
     ["Step", formulaExplanation.bid_step],
@@ -54,7 +58,7 @@ function SellPage({
 
   return (
     <>
-      <section className="hero-banner">
+      <section className="hero-banner sell-hero">
         <div>
           <p className="hero-label">Размещение товара</p>
           <h2>Продажа вещи через умный аукцион</h2>
@@ -87,7 +91,7 @@ function SellPage({
               <input
                 name="seller_name"
                 value={sellForm.seller_name}
-                onChange={handleSellTopLevelChange}
+                readOnly
               />
             </div>
 
@@ -99,6 +103,19 @@ function SellPage({
                 value={sellForm.start_price}
                 onChange={handleSellTopLevelChange}
               />
+            </div>
+
+            <div className="field">
+              <label>Окончание аукциона</label>
+              <input
+                type="datetime-local"
+                name="end_time"
+                value={sellForm.end_time || ""}
+                onChange={handleSellTopLevelChange}
+              />
+              <p className="field-hint">
+                Выбери дату и время по календарю: до этого момента лот будет принимать ставки.
+              </p>
             </div>
 
             <div className="field">
@@ -192,31 +209,29 @@ function SellPage({
               </select>
             </div>
 
-            <div className="field-row">
-              <div className="field">
-                <label>Размер</label>
-                <select
-                  name="size"
-                  value={sellForm.questionnaire.size}
-                  onChange={handleSellQuestionnaireChange}
-                >
-                  <option value="">Выбери размер</option>
-                  {sizeOptions.map((size) => (
-                    <option key={size} value={size}>
-                      {size}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="field size-field">
+              <label>Размер</label>
+              <select
+                name="size"
+                value={sellForm.questionnaire.size}
+                onChange={handleSellQuestionnaireChange}
+              >
+                <option value="">Выбери размер</option>
+                {sizeOptions.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              <div className="field">
-                <label>Цвета товара</label>
-                <MultiColorSelect
-                  options={colorOptions}
-                  selectedColors={sellForm.questionnaire.colors || []}
-                  onToggleColor={handleToggleColor}
-                />
-              </div>
+            <div className="field color-field">
+              <label>Цвета товара</label>
+              <MultiColorSelect
+                options={colorOptions}
+                selectedColors={sellForm.questionnaire.colors || []}
+                onToggleColor={handleToggleColor}
+              />
             </div>
 
             <div className="field-row">
@@ -329,6 +344,23 @@ function SellPage({
                     <span>Прогноз финальной цены</span>
                     <strong>{formatMoney(sellResult.expected_final_price)}</strong>
                   </div>
+                  <div className="stat-box">
+                    <span>Диапазон прогноза</span>
+                    <strong>
+                      {formatMoney(sellResult.conservative_final_price)} —{" "}
+                      {formatMoney(sellResult.optimistic_final_price)}
+                    </strong>
+                  </div>
+                  <div className="stat-box">
+                    <span>Поведение торгов</span>
+                    <strong>
+                      {sellResult.bids_bucket || sellResult.auction_behavior?.bids_bucket || "0"}
+                    </strong>
+                    <small>
+                      Online Auctions Dataset, uplift{" "}
+                      {formatScore(sellResult.auction_uplift || sellResult.auction_behavior?.auction_uplift)}
+                    </small>
+                  </div>
                 </div>
 
                 <div className="result-box">
@@ -366,6 +398,11 @@ function SellPage({
                     ориентироваться на итоговую цену около{" "}
                     <strong>{formatMoney(sellResult.expected_final_price)}</strong>.
                   </p>
+                  <p>
+                    Цена, которую указал продавец, не заменяется автоматически:
+                    рекомендацию модели можно применить только вручную в финальных
+                    параметрах публикации.
+                  </p>
                 </div>
 
                 <div className="result-box publish-settings-box">
@@ -397,12 +434,25 @@ function SellPage({
                     </div>
                   </div>
 
+                  <div className="field">
+                    <label>Финальное время окончания</label>
+                    <input
+                      type="datetime-local"
+                      name="end_time"
+                      value={sellForm.end_time || ""}
+                      onChange={handleSellTopLevelChange}
+                    />
+                    <p className="field-hint">
+                      Можно изменить длительность торгов перед публикацией.
+                    </p>
+                  </div>
+
                   <button
                     type="button"
                     className="secondary-btn full"
                     onClick={handleApplyPricingRecommendation}
                   >
-                    Вернуть рекомендации модели
+                    Применить рекомендации модели
                   </button>
                 </div>
                 {sellResult && (
