@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { categoryOptions } from "../data/categories";
 
 const formatMoney = (value) => {
@@ -29,31 +30,9 @@ const categoryIcons = {
   bottoms: "▥",
   shoes: "♢",
   accessories: "✦",
-  bomber: "B",
-  leather_jacket: "L",
-  denim_jacket: "D",
-  windbreaker: "W",
-  puffer: "P",
-  sheepskin: "S",
-  coat: "C",
-  trench: "T",
-  hoodie: "H",
-  tshirt: "T",
-  shirt: "S",
-  sweater: "W",
-  longsleeve: "L",
-  jeans: "J",
-  pants: "P",
-  shorts: "S",
-  skirt: "K",
-  sneakers: "S",
-  boots: "B",
-  loafers: "L",
-  bag: "B",
-  cap: "C",
-  belt: "B",
-  scarf: "S",
 };
+
+const subcategoryIcon = (value) => (value || "?").slice(0, 1).toUpperCase();
 
 const flattenCategories = () => [
   { value: "", label: "Все лоты", icon: categoryIcons.all, level: "root" },
@@ -67,8 +46,9 @@ const flattenCategories = () => [
     ...(category.subcategories || []).map((subcategory) => ({
       value: subcategory.value,
       label: subcategory.label,
-      icon: categoryIcons[subcategory.value] || "·",
+      icon: subcategoryIcon(subcategory.value),
       level: "child",
+      parent: category.value,
     })),
   ]),
 ];
@@ -82,7 +62,33 @@ function CatalogPage({
   filteredAuctions,
   handleSelectAuction,
 }) {
-  const categories = flattenCategories();
+  const [expandedCategory, setExpandedCategory] = useState("");
+  const [mobileCategoriesOpen, setMobileCategoriesOpen] = useState(false);
+  const categories = useMemo(() => flattenCategories(), []);
+  const visibleCategories = useMemo(() => {
+    const items = [{ value: "", label: "Все лоты", icon: categoryIcons.all, level: "root" }];
+    categoryOptions.forEach((category) => {
+      items.push({
+        value: category.value,
+        label: category.label,
+        icon: categoryIcons[category.value] || "◇",
+        level: "root",
+        hasChildren: Boolean(category.subcategories?.length),
+      });
+      if (expandedCategory === category.value) {
+        category.subcategories?.forEach((subcategory) => {
+          items.push({
+            value: subcategory.value,
+            label: subcategory.label,
+            icon: subcategoryIcon(subcategory.value),
+            level: "child",
+            parent: category.value,
+          });
+        });
+      }
+    });
+    return items;
+  }, [expandedCategory]);
   const activeCategory =
     categories.find((category) => category.value === filters.category) || categories[0];
   const heroTitle =
@@ -93,6 +99,18 @@ function CatalogPage({
     activeCategory.value === ""
       ? "Листай товары как в премиальном винтажном каталоге, открывай карточку и участвуй в торгах."
       : `Раздел каталога: ${activeCategory.label}. Фильтр работает как отдельная страница категории.`;
+
+  const selectCategory = (category) => {
+    if (category.level === "root" && category.value) {
+      setExpandedCategory((current) =>
+        current === category.value ? "" : category.value
+      );
+    }
+    handleCategorySelect(category.value);
+    if (category.level === "child" || category.value === "") {
+      setMobileCategoriesOpen(false);
+    }
+  };
 
   return (
     <>
@@ -107,21 +125,34 @@ function CatalogPage({
       {error && <div className="error-box">{error}</div>}
 
       <div className="market-layout">
-        <aside className="category-sidebar">
+        <aside className={`category-sidebar ${mobileCategoriesOpen ? "open" : ""}`}>
+          <button
+            className="category-panel-toggle"
+            type="button"
+            onClick={() => setMobileCategoriesOpen((current) => !current)}
+          >
+            Категории
+            <span>{mobileCategoriesOpen ? "−" : "+"}</span>
+          </button>
           <div className="sidebar-title">Категории</div>
 
           <div className="sidebar-list">
-            {categories.map((category, index) => (
+            {visibleCategories.map((category, index) => (
               <button
                 key={`${category.level}-${category.value || "all"}-${index}`}
                 className={`sidebar-item ${category.level} ${
                   filters.category === category.value ? "active" : ""
-                }`}
+                } ${expandedCategory === category.value ? "expanded" : ""}`}
                 type="button"
-                onClick={() => handleCategorySelect(category.value)}
+                onClick={() => selectCategory(category)}
               >
                 <span className="sidebar-icon">{category.icon}</span>
                 <span>{category.label}</span>
+                {category.hasChildren && (
+                  <span className="sidebar-arrow">
+                    {expandedCategory === category.value ? "−" : "+"}
+                  </span>
+                )}
               </button>
             ))}
           </div>

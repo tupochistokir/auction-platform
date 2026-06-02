@@ -12,6 +12,8 @@ import OffersPage from "./pages/OffersPage";
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 const AUTH_TOKEN_KEY = "auction_auth_token";
+const MAX_PRICE_INPUT = 9999999;
+const MAX_ITEM_AGE_INPUT = 120;
 
 const toDateTimeLocalValue = (date) => {
   const timezoneOffset = date.getTimezoneOffset() * 60000;
@@ -29,6 +31,14 @@ const toNullableNumber = (value) => {
   if (value === "" || value === null || value === undefined) return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+};
+
+const clampNumericText = (value, max) => {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  if (!digits) return "";
+
+  const number = Math.min(Number(digits), max);
+  return Number.isFinite(number) ? String(number) : "";
 };
 
 const toOptionalIsoDate = (value) => {
@@ -65,6 +75,9 @@ const emptyAuthForm = {
   display_name: "",
   identifier: "",
   password: "",
+  recovery_question: "first_teacher_last_name",
+  recovery_answer: "",
+  new_password: "",
 };
 
 function App() {
@@ -117,7 +130,7 @@ function App() {
   const [sellForm, setSellForm] = useState({
     title: "",
     seller_name: "",
-    start_price: 3000,
+    start_price: "",
     bid_step_override: "",
     end_time: defaultAuctionEndTime(),
     description: "",
@@ -132,7 +145,7 @@ function App() {
       material: "",
       condition: "good",
       has_tag: false,
-      estimated_age: 0,
+      estimated_age: "",
       defects: "",
       seller_comment: "",
       style: "",
@@ -388,7 +401,12 @@ function App() {
     setAuthLoading(true);
     setAuthError("");
 
-    const endpoint = authMode === "register" ? "register" : "login";
+    const endpoint =
+      authMode === "register"
+        ? "register"
+        : authMode === "recover"
+        ? "password-recovery/reset"
+        : "login";
     const payload =
       authMode === "register"
         ? {
@@ -396,6 +414,15 @@ function App() {
             email: authForm.email,
             password: authForm.password,
             display_name: authForm.display_name,
+            recovery_question: authForm.recovery_question,
+            recovery_answer: authForm.recovery_answer,
+          }
+        : authMode === "recover"
+        ? {
+            email: authForm.email,
+            recovery_question: authForm.recovery_question,
+            recovery_answer: authForm.recovery_answer,
+            new_password: authForm.new_password,
           }
         : {
             identifier: authForm.identifier,
@@ -444,6 +471,9 @@ function App() {
       setProfileData(null);
       setFavoritesData([]);
       setBidUser("");
+      setAuthMode("login");
+      setAuthForm(emptyAuthForm);
+      setAuthError("");
       setPage("catalog");
     }
   };
@@ -734,6 +764,37 @@ function App() {
     }
   };
 
+  const handleDeleteAuction = async (auctionId) => {
+    if (!requireAuth("Войдите в кабинет продавца, чтобы удалить лот.")) return null;
+
+    try {
+      setProfileError("");
+
+      const response = await fetch(`${API_URL}/auctions/${auctionId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Не удалось удалить лот");
+      }
+
+      if (selectedAuction?.id === auctionId) {
+        setSelectedAuction(null);
+        setCatalogView("grid");
+      }
+      await loadAuctions();
+      await loadProfile();
+      return data;
+    } catch (err) {
+      setProfileError(err.message || "Не удалось удалить лот");
+      throw err;
+    }
+  };
+
   const uploadAuctionImages = async (fileList) => {
     const files = Array.from(fileList || []);
     if (!files.length) return [];
@@ -920,12 +981,8 @@ function App() {
     setSellForm((prev) => ({
       ...prev,
       [name]:
-        name === "start_price"
-          ? Number(value)
-          : name === "bid_step_override"
-          ? value === ""
-            ? ""
-            : Number(value)
+        name === "start_price" || name === "bid_step_override"
+          ? clampNumericText(value, MAX_PRICE_INPUT)
           : value,
     }));
   };
@@ -939,8 +996,8 @@ function App() {
         [name]:
           type === "checkbox"
             ? checked
-            : name === "estimated_age"
-            ? Number(value)
+          : name === "estimated_age"
+            ? clampNumericText(value, MAX_ITEM_AGE_INPUT)
             : value,
       };
 
@@ -1128,8 +1185,8 @@ function App() {
     if (!sellResult) return;
     setSellForm((prev) => ({
       ...prev,
-      start_price: sellResult.recommended_start_price,
-      bid_step_override: sellResult.recommended_bid_step,
+      start_price: String(Math.round(Number(sellResult.recommended_start_price || 0))),
+      bid_step_override: String(Math.round(Number(sellResult.recommended_bid_step || 0))),
     }));
   };
 
@@ -1245,6 +1302,7 @@ function App() {
               handleOfferDecision={handleOfferDecision}
               handleBuyerOfferDecision={handleBuyerOfferDecision}
               handleUpdateAuction={handleUpdateAuction}
+              handleDeleteAuction={handleDeleteAuction}
               handleUploadAuctionImages={handleUploadAuctionImages}
               handleAcceptBid={handleAcceptBid}
               goToSell={() => setPage("sell")}

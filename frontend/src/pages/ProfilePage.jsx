@@ -17,6 +17,7 @@ const statusLabel = (status) => {
   const labels = {
     active: "Активен",
     finished: "Завершён",
+    hidden: "Скрыт из каталога",
     pending: "Ждёт ответа продавца",
     accepted: "Принят",
     rejected: "Отклонён",
@@ -246,6 +247,7 @@ function SellerListingCard({
   auction,
   handleSelectAuction,
   handleUpdateAuction,
+  handleDeleteAuction,
   handleUploadAuctionImages,
   handleAcceptBid,
 }) {
@@ -267,8 +269,10 @@ function SellerListingCard({
   const bids = auction.bids || [];
   const hasBids = bids.length > 0;
   const isActive = auction.status === "active";
-  const canEditStartPrice = isActive && !hasBids;
-  const canEditAuctionRules = isActive;
+  const isHidden = auction.status === "hidden";
+  const hasLiveMetrics = auction.status === "active" || auction.status === "finished";
+  const canEditStartPrice = (isActive && !hasBids) || isHidden;
+  const canEditAuctionRules = isActive || isHidden;
   const basePriceSource =
     analysis.base_price_source === "ml_model" ? "ML-модель" : "резервная формула";
 
@@ -333,12 +337,16 @@ function SellerListingCard({
       value: formatMetric(analysis.auction_potential_pre),
       description: "Предварительный потенциал аукциона по признакам товара. Он влияет на старт и шаг.",
     },
-    {
-      code: "A_live",
-      label: "Активность торгов",
-      value: formatMetric(analysis.auction_activity_live ?? analysis.auction_attractiveness),
-      description: "Живая активность после публикации: ставки, офферы, интерес и рост цены.",
-    },
+    ...(hasLiveMetrics
+      ? [
+          {
+            code: "A_live",
+            label: "Live-активность после публикации",
+            value: formatMetric(analysis.auction_activity_live ?? analysis.auction_attractiveness),
+            description: "Появляется после запуска лота и учитывает ставки, офферы, интерес покупателей и рост цены.",
+          },
+        ]
+      : []),
     {
       code: "P_start",
       label: "Рекомендованный старт",
@@ -396,12 +404,16 @@ function SellerListingCard({
         formulaExplanation.auction_potential_pre ||
         "A_pre считается до публикации и влияет на стартовую цену и начальный шаг ставки.",
     },
-    {
-      formula: "A_live = 0.38D + 0.22I + 0.15V + 0.20Q + 0.05P_ratio",
-      text:
-        formulaExplanation.auction_activity_live ||
-        "A_live считается после публикации и показывает текущую активность торгов.",
-    },
+    ...(hasLiveMetrics
+      ? [
+          {
+            formula: "A_live = 0.38D + 0.22I + 0.15V + 0.20Q + 0.05P_ratio",
+            text:
+              formulaExplanation.auction_activity_live ||
+              "A_live считается после публикации и показывает текущую активность торгов.",
+          },
+        ]
+      : []),
     {
       formula: "P_start = max(P_base * (1 - 0.05 - 0.25A_pre), 0.55P_base)",
       text:
@@ -467,6 +479,26 @@ function SellerListingCard({
     setActionMessage("Торги завершены. Итоговая цена зафиксирована.");
   };
 
+  const hideAuction = async () => {
+    await handleUpdateAuction(auction.id, { status: "hidden" });
+    setActionMessage("Лот скрыт из каталога. В кабинете он остаётся как шаблон.");
+  };
+
+  const publishAuction = async () => {
+    await handleUpdateAuction(auction.id, { status: "active" });
+    setActionMessage("Лот снова опубликован в каталоге.");
+  };
+
+  const deleteAuction = async () => {
+    const confirmed = window.confirm(
+      "Удалить лот полностью? Восстановить его после удаления не получится."
+    );
+    if (!confirmed) return;
+
+    await handleDeleteAuction(auction.id);
+    setActionMessage("Лот удалён.");
+  };
+
   const acceptBid = async (bidId) => {
     await handleAcceptBid(auction.id, bidId);
     setActionMessage("Ставка принята. Аукцион завершён по выбранной цене.");
@@ -525,13 +557,19 @@ function SellerListingCard({
           <span>Потенциал A_pre</span>
           <strong>{formatMetric(analysis.auction_potential_pre)}</strong>
         </div>
-        <div className="profile-row seller-metric-row" title="A_live используется после публикации для прогноза и решений продавца">
-          <span>Активность A_live</span>
-          <strong>{formatMetric(analysis.auction_activity_live ?? analysis.auction_attractiveness)}</strong>
-        </div>
+        {hasLiveMetrics && (
+          <div className="profile-row seller-metric-row" title="A_live появляется после публикации и помогает продавцу видеть текущую активность покупателей">
+            <span>Live A_live</span>
+            <strong>{formatMetric(analysis.auction_activity_live ?? analysis.auction_attractiveness)}</strong>
+          </div>
+        )}
         <div className="profile-row seller-metric-row" title="Q — подтверждённая ценность по бренду, состоянию, редкости и винтажности">
           <span>Ценность Q</span>
           <strong>{formatMetric(analysis.confirmed_value_score)}</strong>
+        </div>
+        <div className="profile-row">
+          <span>Статус</span>
+          <strong>{statusLabel(auction.status)}</strong>
         </div>
       </div>
 
@@ -565,6 +603,31 @@ function SellerListingCard({
         >
           {auction.status === "finished" ? "Завершено" : "Завершить"}
         </button>
+        {isHidden ? (
+          <button
+            className="primary-btn"
+            type="button"
+            onClick={publishAuction}
+          >
+            В каталог
+          </button>
+        ) : (
+          <button
+            className="secondary-btn"
+            type="button"
+            onClick={hideAuction}
+            disabled={auction.status !== "active"}
+          >
+            Скрыть
+          </button>
+        )}
+        <button
+          className="danger-btn"
+          type="button"
+          onClick={deleteAuction}
+        >
+          Удалить
+        </button>
       </div>
 
       {actionMessage && <div className="success-box compact">{actionMessage}</div>}
@@ -580,12 +643,12 @@ function SellerListingCard({
           </div>
           <div className="field">
             <label>Название</label>
-            <input
-              name="title"
-              value={form.title}
-              onChange={updateField}
-              disabled={!isActive}
-            />
+              <input
+                name="title"
+                value={form.title}
+                onChange={updateField}
+                disabled={auction.status === "finished"}
+              />
           </div>
           <div className="field">
             <label>Описание</label>
@@ -944,6 +1007,7 @@ function ProfilePage({
   handleOfferDecision,
   handleBuyerOfferDecision,
   handleUpdateAuction,
+  handleDeleteAuction,
   handleUploadAuctionImages,
   handleAcceptBid,
   goToSell,
@@ -1104,6 +1168,7 @@ function ProfilePage({
               <div className="profile-stats-grid">
                 <StatCard label="Всего лотов" value={sellerStats.listings || 0} />
                 <StatCard label="Активные" value={sellerStats.active_listings || 0} />
+                <StatCard label="Скрытые" value={sellerStats.hidden_listings || 0} />
                 <StatCard label="Завершённые" value={sellerStats.finished_listings || 0} />
                 <StatCard label="Ждут решения" value={sellerStats.pending_offers || 0} />
               </div>
@@ -1120,6 +1185,7 @@ function ProfilePage({
                       auction={auction}
                       handleSelectAuction={handleSelectAuction}
                       handleUpdateAuction={handleUpdateAuction}
+                      handleDeleteAuction={handleDeleteAuction}
                       handleUploadAuctionImages={handleUploadAuctionImages}
                       handleAcceptBid={handleAcceptBid}
                     />

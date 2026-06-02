@@ -28,3 +28,14 @@ def get_frontend_origins() -> List[str]:
 
 def get_public_base_url() -> str:
     return os.getenv("PUBLIC_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+
+
+def get_upload_dir() -> str:
+    configured_dir = os.getenv("UPLOAD_DIR", "").strip()
+    if configured_dir:
+        return configured_dir
+
+    if os.getenv("RENDER") and os.path.isdir("/var/data"):
+        return "/var/data/uploads"
+
+    return "uploads"

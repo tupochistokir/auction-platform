@@ -852,7 +852,7 @@ label,
   border-radius: 12px;
   display: grid;
   gap: 6px;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   padding: 6px;
 }
 
@@ -864,6 +864,7 @@ label,
   cursor: pointer;
   font-weight: 800;
   padding: 12px 10px;
+  min-width: 0;
 }
 
 .auth-tabs button.active {
@@ -7632,4 +7633,173 @@ button:active {
   object-fit: cover !important;
   object-position: center !important;
   width: 100% !important;
+}
+
+/* Commission demo fixes: compact category menu, seller controls, calculation disclosure. */
+.category-panel-toggle {
+  align-items: center;
+  background: #2b1a11;
+  border: 0;
+  border-radius: 8px;
+  color: #fff8ef;
+  cursor: pointer;
+  display: none;
+  font: inherit;
+  font-weight: 700;
+  justify-content: space-between;
+  min-height: 46px;
+  padding: 0 14px;
+  width: 100%;
+}
+
+.category-panel-toggle span,
+.sidebar-arrow {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 800;
+  justify-content: center;
+  margin-left: auto;
+  min-width: 20px;
+}
+
+.sidebar-item {
+  position: relative;
+}
+
+.sidebar-item.root {
+  font-weight: 700;
+}
+
+.sidebar-item.child {
+  margin-left: 10px;
+  padding-left: 16px;
+}
+
+.danger-btn {
+  align-items: center;
+  background: #8f1d1d;
+  border: 1px solid #8f1d1d;
+  border-radius: 8px;
+  color: #fffaf4;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+}
+
+.danger-btn:hover {
+  background: #6f1414;
+  border-color: #6f1414;
+}
+
+.danger-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.seller-card-actions .danger-btn {
+  width: 100%;
+}
+
+.stat-box.stat-box-wide {
+  grid-column: 1 / -1;
+}
+
+.seller-recommendation-note {
+  background: rgba(255, 248, 239, 0.78);
+  border: 1px solid rgba(89, 56, 34, 0.16);
+  border-radius: 8px;
+  color: #4f392a;
+  font-size: 14px;
+  line-height: 1.55;
+  margin: 10px 0 0;
+  padding: 12px 14px;
+}
+
+.result-toggle-btn {
+  margin-top: 12px;
+}
+
+.nested-score-grid,
+.result-box .formula-list {
+  margin-top: 12px;
+}
+
+.sell-layout input[type="number"] {
+  appearance: textfield;
+}
+
+.sell-layout input[type="number"]::-webkit-inner-spin-button,
+.sell-layout input[type="number"]::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .marketplace-hero {
+    min-height: auto !important;
+    padding: 28px 16px 20px !important;
+  }
+
+  .marketplace-hero h2 {
+    font-size: 26px !important;
+    line-height: 1.12 !important;
+  }
+
+  .marketplace-hero p {
+    font-size: 14px !important;
+    line-height: 1.45 !important;
+  }
+
+  .market-layout {
+    gap: 14px !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  .category-sidebar {
+    border-radius: 8px !important;
+    padding: 10px !important;
+    position: static !important;
+    top: auto !important;
+    width: 100% !important;
+  }
+
+  .category-panel-toggle {
+    display: flex !important;
+  }
+
+  .category-sidebar .sidebar-title {
+    display: none !important;
+  }
+
+  .category-sidebar .sidebar-list {
+    display: none !important;
+    margin-top: 10px !important;
+    max-height: 58vh;
+    overflow: auto;
+  }
+
+  .category-sidebar.open .sidebar-list {
+    display: grid !important;
+  }
+
+  .market-filters {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .market-filters input[name="search"] {
+    grid-column: 1 / -1;
+  }
+
+  .auth-tabs {
+    gap: 6px;
+  }
+
+  .auth-tabs button {
+    font-size: 12px;
+    padding-inline: 8px;
+  }
 }

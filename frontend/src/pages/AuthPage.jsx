@@ -16,6 +16,14 @@ const authCopy = {
   },
 };
 
+const recoveryQuestions = [
+  { value: "first_teacher_last_name", label: "Фамилия первого учителя" },
+  { value: "pet_name", label: "Кличка первого питомца" },
+  { value: "childhood_street", label: "Улица детства" },
+  { value: "favorite_book", label: "Любимая книга" },
+  { value: "birth_city", label: "Город рождения" },
+];
+
 function AuthPage({
   mode,
   setMode,
@@ -28,6 +36,7 @@ function AuthPage({
 }) {
   const copy = authCopy[variant] || authCopy.profile;
   const isRegister = mode === "register";
+  const isRecover = mode === "recover";
 
   return (
     <section className="auth-shell">
@@ -52,6 +61,13 @@ function AuthPage({
             onClick={() => setMode("register")}
           >
             Регистрация
+          </button>
+          <button
+            className={mode === "recover" ? "active" : ""}
+            type="button"
+            onClick={() => setMode("recover")}
+          >
+            Восстановить
           </button>
         </div>
 
@@ -89,6 +105,86 @@ function AuthPage({
                 required
               />
             </div>
+
+            <div className="field">
+              <label>Вопрос для восстановления</label>
+              <select
+                name="recovery_question"
+                value={form.recovery_question}
+                onChange={onChange}
+                required
+              >
+                {recoveryQuestions.map((question) => (
+                  <option key={question.value} value={question.value}>
+                    {question.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <label>Ответ на вопрос</label>
+              <input
+                name="recovery_answer"
+                value={form.recovery_answer}
+                onChange={onChange}
+                placeholder="Ответ пригодится, если забудете пароль"
+                required
+              />
+            </div>
+          </>
+        ) : isRecover ? (
+          <>
+            <div className="field">
+              <label>Email аккаунта</label>
+              <input
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={onChange}
+                placeholder="mail@example.ru"
+                required
+              />
+            </div>
+
+            <div className="field">
+              <label>Вопрос для восстановления</label>
+              <select
+                name="recovery_question"
+                value={form.recovery_question}
+                onChange={onChange}
+                required
+              >
+                {recoveryQuestions.map((question) => (
+                  <option key={question.value} value={question.value}>
+                    {question.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <label>Ответ</label>
+              <input
+                name="recovery_answer"
+                value={form.recovery_answer}
+                onChange={onChange}
+                placeholder="Тот же ответ, что при регистрации"
+                required
+              />
+            </div>
+
+            <div className="field">
+              <label>Новый пароль</label>
+              <input
+                name="new_password"
+                type="password"
+                value={form.new_password}
+                onChange={onChange}
+                placeholder="Минимум 6 символов"
+                required
+              />
+            </div>
           </>
         ) : (
           <div className="field">
@@ -103,6 +199,7 @@ function AuthPage({
           </div>
         )}
 
+        {!isRecover && (
         <div className="field">
           <label>Пароль</label>
           <input
@@ -114,11 +211,18 @@ function AuthPage({
             required
           />
         </div>
+        )}
 
         {error && <div className="error-box">{error}</div>}
 
         <button className="primary-btn full-width" type="submit" disabled={loading}>
-          {loading ? "Проверяем..." : isRegister ? "Создать аккаунт" : "Войти в кабинет"}
+          {loading
+            ? "Проверяем..."
+            : isRegister
+            ? "Создать аккаунт"
+            : isRecover
+            ? "Сменить пароль"
+            : "Войти в кабинет"}
         </button>
       </form>
     </section>

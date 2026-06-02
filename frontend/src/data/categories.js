@@ -64,7 +64,7 @@ export const categoryOptions = [
   },
   {
     value: "other",
-    label: "Другое из Mercari",
+    label: "Другое",
     subcategories: [
       { value: "other", label: "Другое" },
     ],

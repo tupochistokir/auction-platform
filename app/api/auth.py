@@ -13,7 +13,7 @@ from fastapi import APIRouter, File, Header, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import or_
 
-from app.config import get_public_base_url
+from app.config import get_public_base_url, get_upload_dir
 from app.db.database import SessionLocal
 from app.db.models import User
 
@@ -28,11 +28,26 @@ class RegisterRequest(BaseModel):
     email: str
     password: str
     display_name: Optional[str] = None
+    recovery_question: str
+    recovery_answer: str
 
 
 class LoginRequest(BaseModel):
     identifier: str
     password: str
+
+
+class PasswordRecoveryVerifyRequest(BaseModel):
+    email: str
+    recovery_question: str
+    recovery_answer: str
+
+
+class PasswordResetRequest(BaseModel):
+    email: str
+    recovery_question: str
+    recovery_answer: str
+    new_password: str
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -49,6 +64,10 @@ def _normalize(value: str) -> str:
     return (value or "").strip().lower()
 
 
+def _normalize_answer(value: str) -> str:
+    return " ".join((value or "").strip().lower().split())
+
+
 def _hash_password(password: str, salt: str) -> str:
     return hashlib.pbkdf2_hmac(
         "sha256",
@@ -60,6 +79,17 @@ def _hash_password(password: str, salt: str) -> str:
 
 def _verify_password(password: str, salt: str, expected_hash: str) -> bool:
     actual_hash = _hash_password(password, salt)
+    return hmac.compare_digest(actual_hash, expected_hash or "")
+
+
+def _hash_recovery_answer(answer: str, salt: str) -> str:
+    return _hash_password(_normalize_answer(answer), salt)
+
+
+def _verify_recovery_answer(answer: str, salt: str, expected_hash: str) -> bool:
+    if not salt or not expected_hash:
+        return False
+    actual_hash = _hash_recovery_answer(answer, salt)
     return hmac.compare_digest(actual_hash, expected_hash or "")
 
 
@@ -132,6 +162,11 @@ def _user_to_dict(user: User) -> Dict[str, Any]:
         "city": getattr(user, "city", None),
         "bio": getattr(user, "bio", None),
         "is_incognito": bool(getattr(user, "is_incognito", False)),
+        "password_recovery_question": getattr(user, "password_recovery_question", None),
+        "has_password_recovery": bool(
+            getattr(user, "password_recovery_question", None)
+            and getattr(user, "password_recovery_answer_hash", None)
+        ),
         "created_at": user.created_at.isoformat() if user.created_at else None,
     }
 
@@ -161,6 +196,10 @@ def register(payload: RegisterRequest):
         raise HTTPException(status_code=400, detail="Введите корректный email")
     if len(payload.password or "") < 6:
         raise HTTPException(status_code=400, detail="Пароль должен быть не короче 6 символов")
+    if not _normalize(payload.recovery_question):
+        raise HTTPException(status_code=400, detail="Выберите вопрос для восстановления пароля")
+    if len(_normalize_answer(payload.recovery_answer)) < 2:
+        raise HTTPException(status_code=400, detail="Ответ для восстановления должен быть не короче 2 символов")
 
     db = SessionLocal()
     try:
@@ -176,12 +215,19 @@ def register(payload: RegisterRequest):
             )
 
         salt = secrets.token_hex(16)
+        recovery_salt = secrets.token_hex(16)
         user = User(
             username=username,
             email=email,
             display_name=display_name or username,
             password_salt=salt,
             password_hash=_hash_password(payload.password, salt),
+            password_recovery_question=_normalize(payload.recovery_question),
+            password_recovery_answer_salt=recovery_salt,
+            password_recovery_answer_hash=_hash_recovery_answer(
+                payload.recovery_answer,
+                recovery_salt,
+            ),
         )
         db.add(user)
         db.commit()
@@ -189,6 +235,67 @@ def register(payload: RegisterRequest):
 
         return {
             "message": "Регистрация завершена",
+            "token": create_token(user),
+            "user": _user_to_dict(user),
+        }
+    finally:
+        db.close()
+
+
+@router.post("/password-recovery/verify")
+def verify_password_recovery(payload: PasswordRecoveryVerifyRequest):
+    email = _normalize(payload.email)
+    question = _normalize(payload.recovery_question)
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        if (
+            not user
+            or _normalize(getattr(user, "password_recovery_question", "")) != question
+            or not _verify_recovery_answer(
+                payload.recovery_answer,
+                getattr(user, "password_recovery_answer_salt", ""),
+                getattr(user, "password_recovery_answer_hash", ""),
+            )
+        ):
+            raise HTTPException(status_code=401, detail="Ответ на секретный вопрос не совпал")
+
+        return {"message": "Ответ подтверждён", "can_reset": True}
+    finally:
+        db.close()
+
+
+@router.post("/password-recovery/reset")
+def reset_password(payload: PasswordResetRequest):
+    email = _normalize(payload.email)
+    question = _normalize(payload.recovery_question)
+
+    if len(payload.new_password or "") < 6:
+        raise HTTPException(status_code=400, detail="Новый пароль должен быть не короче 6 символов")
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        if (
+            not user
+            or _normalize(getattr(user, "password_recovery_question", "")) != question
+            or not _verify_recovery_answer(
+                payload.recovery_answer,
+                getattr(user, "password_recovery_answer_salt", ""),
+                getattr(user, "password_recovery_answer_hash", ""),
+            )
+        ):
+            raise HTTPException(status_code=401, detail="Не удалось подтвердить владельца аккаунта")
+
+        salt = secrets.token_hex(16)
+        user.password_salt = salt
+        user.password_hash = _hash_password(payload.new_password, salt)
+        db.commit()
+        db.refresh(user)
+
+        return {
+            "message": "Пароль обновлён",
             "token": create_token(user),
             "user": _user_to_dict(user),
         }
@@ -299,7 +406,7 @@ def upload_avatar(
     db = SessionLocal()
     try:
         user = _get_current_user(db, authorization)
-        upload_dir = os.path.join("uploads", "avatars")
+        upload_dir = os.path.join(get_upload_dir(), "avatars")
         os.makedirs(upload_dir, exist_ok=True)
 
         _, extension = os.path.splitext(file.filename or "")

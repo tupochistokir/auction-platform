@@ -4,6 +4,10 @@ services:
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    disk:
+      name: auction-platform-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
@@ -13,5 +17,7 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
       - key: AUCTION_AUTH_SECRET
         sync: false

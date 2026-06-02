@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { brandOptions } from "../data/brands";
 import { categoryOptions } from "../data/categories";
 import { colorOptions } from "../data/colors";
@@ -32,24 +33,30 @@ function SellPage({
   handleToggleColor,
   handleApplyPricingRecommendation,
 }) {
+  const [qOpen, setQOpen] = useState(false);
+  const [formulasOpen, setFormulasOpen] = useState(false);
   const analysis = sellResult?.analysis || {};
   const formulaExplanation =
     sellResult?.formula_explanation || analysis.formula_explanation || {};
 
   const scoreRows = [
+    ["Q", "Подтверждённая ценность", analysis.confirmed_value_score],
+    ["A_pre", "Потенциал до старта", analysis.auction_potential_pre],
+    ["D", "Спрос", analysis.demand_score],
+    ["I", "Интерес", analysis.interest_score],
+    ["V", "Неопределённость", analysis.uncertainty_score],
+  ];
+
+  const qRows = [
     ["Q_b", "Бренд", analysis.brand_score],
     ["Q_c", "Состояние", analysis.condition_score],
     ["Q_v", "Винтажность", analysis.vintage_score],
     ["Q_r", "Редкость", analysis.rarity_score],
-    ["Q", "Подтверждённая ценность", analysis.confirmed_value_score],
-    ["A_pre", "Потенциал до старта", analysis.auction_potential_pre],
-    ["A_live", "Активность торгов", analysis.auction_activity_live ?? analysis.auction_attractiveness],
   ];
 
   const formulaRows = [
     ["Q", formulaExplanation.confirmed_value_score],
     ["A_pre", formulaExplanation.auction_potential_pre],
-    ["A_live", formulaExplanation.auction_activity_live || formulaExplanation.auction_attractiveness],
     ["P_base", formulaExplanation.base_price],
     ["P_start", formulaExplanation.start_price],
     ["Step", formulaExplanation.bid_step],
@@ -98,10 +105,12 @@ function SellPage({
             <div className="field">
               <label>Желаемая цена продавца</label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 name="start_price"
                 value={sellForm.start_price}
                 onChange={handleSellTopLevelChange}
+                placeholder="Например 3000"
               />
             </div>
 
@@ -270,10 +279,12 @@ function SellPage({
             <div className="field">
               <label>Возраст вещи (лет)</label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 name="estimated_age"
                 value={sellForm.questionnaire.estimated_age}
                 onChange={handleSellQuestionnaireChange}
+                placeholder="Например 7"
               />
             </div>
 
@@ -344,24 +355,18 @@ function SellPage({
                     <span>Прогноз финальной цены</span>
                     <strong>{formatMoney(sellResult.expected_final_price)}</strong>
                   </div>
-                  <div className="stat-box">
-                    <span>Диапазон прогноза</span>
+                  <div className="stat-box stat-box-wide">
+                    <span>Диапазон финальной цены</span>
                     <strong>
                       {formatMoney(sellResult.conservative_final_price)} —{" "}
                       {formatMoney(sellResult.optimistic_final_price)}
                     </strong>
                   </div>
-                  <div className="stat-box">
-                    <span>Поведение торгов</span>
-                    <strong>
-                      {sellResult.bids_bucket || sellResult.auction_behavior?.bids_bucket || "0"}
-                    </strong>
-                    <small>
-                      Online Auctions Dataset, uplift{" "}
-                      {formatScore(sellResult.auction_uplift || sellResult.auction_behavior?.auction_uplift)}
-                    </small>
-                  </div>
                 </div>
+                <p className="seller-recommendation-note">
+                  После публикации на прогноз цены будет влиять активность покупателей:
+                  просмотры, лайки, избранное, офферы, ставки и темп роста текущей цены.
+                </p>
 
                 <div className="result-box">
                   <h4>Математический разбор</h4>
@@ -374,18 +379,44 @@ function SellPage({
                       </div>
                     ))}
                   </div>
+                  <button
+                    className="secondary-btn full result-toggle-btn"
+                    type="button"
+                    onClick={() => setQOpen((current) => !current)}
+                  >
+                    Подтверждённая ценность Q {qOpen ? "−" : "+"}
+                  </button>
+                  {qOpen && (
+                    <div className="score-grid nested-score-grid">
+                      {qRows.map(([code, label, value]) => (
+                        <div className="score-card" key={code}>
+                          <span>{code}</span>
+                          <strong>{formatScore(value)}</strong>
+                          <p>{label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="result-box">
-                  <h4>Формулы модели</h4>
-                  <div className="formula-list">
-                    {formulaRows.map(([code, formula]) => (
-                      <div className="formula-row" key={code}>
-                        <span>{code}</span>
-                        <p>{formula}</p>
-                      </div>
-                    ))}
-                  </div>
+                  <button
+                    className="secondary-btn full result-toggle-btn"
+                    type="button"
+                    onClick={() => setFormulasOpen((current) => !current)}
+                  >
+                    Математические формулы {formulasOpen ? "−" : "+"}
+                  </button>
+                  {formulasOpen && (
+                    <div className="formula-list">
+                      {formulaRows.map(([code, formula]) => (
+                        <div className="formula-row" key={code}>
+                          <span>{code}</span>
+                          <p>{formula}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="result-box">
@@ -416,20 +447,24 @@ function SellPage({
                     <div className="field">
                       <label>Финальная стартовая цена</label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         name="start_price"
                         value={sellForm.start_price}
                         onChange={handleSellTopLevelChange}
+                        placeholder="Например 3000"
                       />
                     </div>
 
                     <div className="field">
                       <label>Финальный шаг ставки</label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         name="bid_step_override"
                         value={sellForm.bid_step_override || ""}
                         onChange={handleSellTopLevelChange}
+                        placeholder="Например 150"
                       />
                     </div>
                   </div>

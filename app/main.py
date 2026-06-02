@@ -8,14 +8,15 @@ from app.api.lots import router as lots_router
 from app.api.pricing import router as pricing_router
 from app.api.auctions import router as auctions_router
 from app.api.auth import router as auth_router
-from app.config import get_frontend_origins
+from app.config import get_frontend_origins, get_upload_dir
 
 from app.db.database import engine, Base, ensure_sqlite_schema
 from app.db import models
 
 Base.metadata.create_all(bind=engine)
 ensure_sqlite_schema()
-os.makedirs("uploads", exist_ok=True)
+upload_dir = get_upload_dir()
+os.makedirs(upload_dir, exist_ok=True)
 
 app = FastAPI(title="Auction Platform API")
 
@@ -27,7 +28,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/uploads", StaticFiles(directory=upload_dir), name="uploads")
 
 
 @app.get("/")

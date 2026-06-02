@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from app.db.database import SessionLocal
 from app.db.models import Auction, AuctionInteraction, Bid, Offer, User
 from app.api.auth import _get_current_user
-from app.config import get_public_base_url
+from app.config import get_public_base_url, get_upload_dir
 from app.pricing.math_core import calculate_full_pricing, calculate_recommended_bid
 from app.pricing.recommendation_engine import (
     generate_user_advice,
@@ -601,7 +601,12 @@ def _serialize_auction(
 def get_auctions():
     db = SessionLocal()
     try:
-        auctions = db.query(Auction).order_by(Auction.id.desc()).all()
+        auctions = (
+            db.query(Auction)
+            .filter(Auction.status == "active")
+            .order_by(Auction.id.desc())
+            .all()
+        )
         result = [_serialize_auction(db, auction) for auction in auctions]
         db.commit()
         return {"auctions": result}
@@ -730,6 +735,9 @@ def get_profile(user_name: str, authorization: Optional[str] = Header(default=No
         active_seller_auctions = [
             auction for auction in seller_auctions if auction.status == "active"
         ]
+        hidden_seller_auctions = [
+            auction for auction in seller_auctions if auction.status == "hidden"
+        ]
         finished_seller_auctions = [
             auction for auction in seller_auctions if auction.status == "finished"
         ]
@@ -771,6 +779,7 @@ def get_profile(user_name: str, authorization: Optional[str] = Header(default=No
                 "stats": {
                     "listings": len(seller_auctions),
                     "active_listings": len(active_seller_auctions),
+                    "hidden_listings": len(hidden_seller_auctions),
                     "finished_listings": len(finished_seller_auctions),
                     "pending_offers": len(pending_incoming),
                     "expected_revenue": round(
@@ -854,8 +863,10 @@ def get_auction(
 
         current_user = _get_optional_current_user(db, authorization)
         is_seller = _is_auction_seller(current_user, auction)
+        if auction.status == "hidden" and not is_seller:
+            raise HTTPException(status_code=404, detail="Аукцион не найден")
 
-        if current_user:
+        if current_user and auction.status == "active":
             interaction = _get_interaction(db, auction.id, current_user.id)
             if not interaction.viewed:
                 interaction.viewed = True
@@ -892,6 +903,7 @@ def update_auction(
         current_user = _require_seller_access(db, auction, authorization)
         data = payload.dict(exclude_unset=True)
         bids_count = db.query(Bid).filter(Bid.auction_id == auction.id).count()
+        template_bids_count = 0 if auction.status == "hidden" else bids_count
 
         if auction.status == "finished":
             locked_fields = set(data) - {"description"}
@@ -924,14 +936,14 @@ def update_auction(
             start_price = float(data["start_price"])
             if start_price <= 0:
                 raise HTTPException(status_code=400, detail="Стартовая цена должна быть больше 0")
-            if bids_count > 0 and round(start_price, 2) != round(float(auction.start_price or 0), 2):
+            if template_bids_count > 0 and round(start_price, 2) != round(float(auction.start_price or 0), 2):
                 raise HTTPException(
                     status_code=400,
                     detail="Стартовую цену можно менять только до первой ставки",
                 )
             old_start = float(auction.start_price or 0)
             auction.start_price = round(start_price, 2)
-            if bids_count == 0 or float(auction.current_price or 0) <= old_start:
+            if template_bids_count == 0 or float(auction.current_price or 0) <= old_start:
                 auction.current_price = round(start_price, 2)
 
         if "recommended_bid_step" in data and data["recommended_bid_step"] is not None:
@@ -948,13 +960,27 @@ def update_auction(
 
         if "status" in data and data["status"] is not None:
             status = data["status"].strip().lower()
-            if status not in {"active", "finished"}:
-                raise HTTPException(status_code=400, detail="Статус может быть только active или finished")
+            if status not in {"active", "hidden", "finished"}:
+                raise HTTPException(status_code=400, detail="Статус может быть active, hidden или finished")
+            previous_status = auction.status
+            if status == "active" and previous_status == "hidden":
+                db.query(Bid).filter(Bid.auction_id == auction.id).delete()
+                db.query(Offer).filter(Offer.auction_id == auction.id).delete()
+                db.query(AuctionInteraction).filter(
+                    AuctionInteraction.auction_id == auction.id
+                ).delete()
+                auction.current_price = float(auction.start_price or 0)
+                auction.total_bids = 0
+                auction.views_count = 0
+                auction.likes_count = 0
+                auction.favorites_count = 0
+            if status == "active" and auction.end_time and auction.end_time <= datetime.utcnow():
+                auction.end_time = datetime.utcnow() + timedelta(days=7)
             auction.status = status
             if status == "finished":
                 auction.final_price = float(auction.current_price or 0)
                 auction.end_time = datetime.utcnow()
-            else:
+            elif status == "active":
                 auction.final_price = None
 
         auction_payload = _serialize_auction(
@@ -981,6 +1007,36 @@ def update_auction(
         db.close()
 
 
+@router.delete("/{auction_id}")
+def delete_auction(
+    auction_id: int,
+    authorization: Optional[str] = Header(default=None),
+):
+    db = SessionLocal()
+    try:
+        auction = db.query(Auction).filter(Auction.id == auction_id).first()
+        if not auction:
+            raise HTTPException(status_code=404, detail="Аукцион не найден")
+
+        _require_seller_access(db, auction, authorization)
+
+        db.query(Bid).filter(Bid.auction_id == auction.id).delete()
+        db.query(Offer).filter(Offer.auction_id == auction.id).delete()
+        db.query(AuctionInteraction).filter(
+            AuctionInteraction.auction_id == auction.id
+        ).delete()
+        db.delete(auction)
+        db.commit()
+        return {"message": "Лот удалён", "auction_id": auction_id}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Ошибка при удалении лота: {exc}")
+    finally:
+        db.close()
+
+
 @router.post("/{auction_id}/like")
 def like_auction(
     auction_id: int,
@@ -992,6 +1048,8 @@ def like_auction(
         auction = db.query(Auction).filter(Auction.id == auction_id).first()
         if not auction:
             raise HTTPException(status_code=404, detail="Аукцион не найден")
+        if auction.status != "active":
+            raise HTTPException(status_code=400, detail="Лот сейчас не опубликован в каталоге")
 
         interaction = _get_interaction(db, auction.id, current_user.id)
         interaction.liked = not bool(interaction.liked)
@@ -1017,6 +1075,8 @@ def favorite_auction(
         auction = db.query(Auction).filter(Auction.id == auction_id).first()
         if not auction:
             raise HTTPException(status_code=404, detail="Аукцион не найден")
+        if auction.status != "active":
+            raise HTTPException(status_code=400, detail="Лот сейчас не опубликован в каталоге")
 
         interaction = _get_interaction(db, auction.id, current_user.id)
         interaction.favorited = not bool(interaction.favorited)
@@ -1627,9 +1687,10 @@ def get_auction_offers(
 
 @router.post("/upload-image")
 def upload_image(file: UploadFile = File(...)):
-    os.makedirs("uploads", exist_ok=True)
+    upload_dir = get_upload_dir()
+    os.makedirs(upload_dir, exist_ok=True)
     filename = f"{uuid.uuid4()}.jpg"
-    file_path = os.path.join("uploads", filename)
+    file_path = os.path.join(upload_dir, filename)
 
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
