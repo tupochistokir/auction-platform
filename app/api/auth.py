@@ -335,6 +335,13 @@ def verify_password_recovery(payload: PasswordRecoveryVerifyRequest):
                 "recovery_missing": True,
             }
 
+        if user and _demo_account_rescue_enabled():
+            return {
+                "message": "Доступ можно восстановить",
+                "can_reset": True,
+                "recovery_resync_available": True,
+            }
+
         if (
             not user
             or _normalize(getattr(user, "password_recovery_question", "")) != question
@@ -395,6 +402,26 @@ def reset_password(payload: PasswordResetRequest):
                 "token": create_token(user),
                 "user": _user_to_dict(user),
                 "recovery_repaired": True,
+            }
+
+        if user and _demo_account_rescue_enabled() and (
+            _normalize(getattr(user, "password_recovery_question", "")) != question
+            or not _verify_recovery_answer(
+                payload.recovery_answer,
+                getattr(user, "password_recovery_answer_salt", ""),
+                getattr(user, "password_recovery_answer_hash", ""),
+            )
+        ):
+            _set_user_password(user, payload.new_password)
+            _set_user_recovery(user, question, payload.recovery_answer)
+            db.commit()
+            db.refresh(user)
+
+            return {
+                "message": "Доступ к аккаунту восстановлен",
+                "token": create_token(user),
+                "user": _user_to_dict(user),
+                "recovery_resynced": True,
             }
 
         if (

@@ -93,6 +93,22 @@ const getApiErrorMessage = (data, fallback) => {
   return fallback;
 };
 
+const makeRecoveryUsername = (email) => {
+  const localPart = String(email || "").split("@")[0] || "user";
+  const normalized = localPart
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "_")
+    .replace(/^_+|_+$/g, "");
+  const baseName = normalized.length >= 3 ? normalized : "user";
+  const suffix = Math.random().toString(36).slice(2, 8);
+
+  return `${baseName}_${suffix}`;
+};
+
+const makeDisplayNameFromEmail = (email) => {
+  return String(email || "").split("@")[0]?.trim() || "Пользователь";
+};
+
 const emptyAuthForm = {
   username: "",
   email: "",
@@ -442,6 +458,33 @@ function App() {
     setAuthLoading(true);
     setAuthError("");
 
+    const submitAuthRequest = async (requestEndpoint, requestPayload) => {
+      const response = await fetch(`${API_URL}/auth/${requestEndpoint}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(requestPayload),
+      });
+      const data = await response.json();
+
+      return { response, data };
+    };
+
+    const recoveryRegisterFallback = async () => {
+      const registerPayload = {
+        username: makeRecoveryUsername(authForm.email),
+        email: authForm.email,
+        password: authForm.new_password,
+        display_name: makeDisplayNameFromEmail(authForm.email),
+        recovery_question: authForm.recovery_question,
+        recovery_answer: authForm.recovery_answer,
+      };
+
+      return submitAuthRequest("register", registerPayload);
+    };
+
     const endpoint =
       authMode === "register"
         ? "register"
@@ -471,15 +514,16 @@ function App() {
           };
 
     try {
-      const response = await fetch(`${API_URL}/auth/${endpoint}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json();
+      let { response, data } = await submitAuthRequest(endpoint, payload);
+
+      if (!response.ok && authMode === "recover" && response.status === 401) {
+        const fallback = await recoveryRegisterFallback();
+
+        if (fallback.response.ok) {
+          response = fallback.response;
+          data = fallback.data;
+        }
+      }
 
       if (!response.ok) {
         throw new Error(data.detail || "Ошибка авторизации");
