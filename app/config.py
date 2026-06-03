@@ -35,7 +35,7 @@ def get_upload_dir() -> str:
     if configured_dir:
         return configured_dir
 
-    if os.getenv("RENDER") and os.path.isdir("/var/data"):
+    if os.getenv("RENDER") or os.path.isdir("/var/data"):
         return "/var/data/uploads"
 
     return "uploads"

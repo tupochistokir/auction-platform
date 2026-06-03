@@ -93,22 +93,6 @@ const getApiErrorMessage = (data, fallback) => {
   return fallback;
 };
 
-const makeRecoveryUsername = (email) => {
-  const localPart = String(email || "").split("@")[0] || "user";
-  const normalized = localPart
-    .toLowerCase()
-    .replace(/[^a-z0-9_]/g, "_")
-    .replace(/^_+|_+$/g, "");
-  const baseName = normalized.length >= 3 ? normalized : "user";
-  const suffix = Math.random().toString(36).slice(2, 8);
-
-  return `${baseName}_${suffix}`;
-};
-
-const makeDisplayNameFromEmail = (email) => {
-  return String(email || "").split("@")[0]?.trim() || "Пользователь";
-};
-
 const emptyAuthForm = {
   username: "",
   email: "",
@@ -472,19 +456,6 @@ function App() {
       return { response, data };
     };
 
-    const recoveryRegisterFallback = async () => {
-      const registerPayload = {
-        username: makeRecoveryUsername(authForm.email),
-        email: authForm.email,
-        password: authForm.new_password,
-        display_name: makeDisplayNameFromEmail(authForm.email),
-        recovery_question: authForm.recovery_question,
-        recovery_answer: authForm.recovery_answer,
-      };
-
-      return submitAuthRequest("register", registerPayload);
-    };
-
     const endpoint =
       authMode === "register"
         ? "register"
@@ -514,16 +485,7 @@ function App() {
           };
 
     try {
-      let { response, data } = await submitAuthRequest(endpoint, payload);
-
-      if (!response.ok && authMode === "recover" && response.status === 401) {
-        const fallback = await recoveryRegisterFallback();
-
-        if (fallback.response.ok) {
-          response = fallback.response;
-          data = fallback.data;
-        }
-      }
+      const { response, data } = await submitAuthRequest(endpoint, payload);
 
       if (!response.ok) {
         throw new Error(data.detail || "Ошибка авторизации");
@@ -608,7 +570,7 @@ function App() {
         },
         body: JSON.stringify({
           user: currentUserName,
-          amount: Number(bidAmount),
+          amount: Math.round(Number(bidAmount)),
         }),
       });
 
@@ -660,8 +622,9 @@ function App() {
       }
 
       setBidRecommendation(data);
-      if (data.recommended_bid?.recommended_bid) {
-        setBidAmount(String(Math.round(Number(data.recommended_bid.recommended_bid))));
+      const recommendedBid = Number(data.recommended_bid?.recommended_bid);
+      if (Number.isFinite(recommendedBid)) {
+        setBidAmount(String(Math.round(recommendedBid)));
       }
     } catch (err) {
       setRecommendationError(err.message || "Не удалось рассчитать ставку");
@@ -688,7 +651,7 @@ function App() {
         },
         body: JSON.stringify({
           user: currentUserName,
-          amount: Number(offerAmount),
+          amount: Math.round(Number(offerAmount)),
         }),
       });
 
@@ -726,7 +689,7 @@ function App() {
           },
           body: JSON.stringify({
             action,
-            counter_amount: counterAmount ? Number(counterAmount) : null,
+            counter_amount: counterAmount ? Math.round(Number(counterAmount)) : null,
           }),
         }
       );

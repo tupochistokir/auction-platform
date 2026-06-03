@@ -93,32 +93,6 @@ def _verify_recovery_answer(answer: str, salt: str, expected_hash: str) -> bool:
     return hmac.compare_digest(actual_hash, expected_hash or "")
 
 
-def _demo_account_rescue_enabled() -> bool:
-    value = os.getenv("DEMO_ACCOUNT_RESCUE", "1").strip().lower()
-    return value not in {"0", "false", "no", "off"}
-
-
-def _make_username_from_email(db, email: str) -> str:
-    local_part = (email.split("@", 1)[0] or "user").lower()
-    safe_name = "".join(
-        char if char.isalnum() or char == "_" else "_"
-        for char in local_part
-    ).strip("_")
-
-    if len(safe_name) < 3:
-        safe_name = f"user_{secrets.token_hex(2)}"
-
-    base_name = safe_name[:28]
-    username = base_name
-    suffix = 1
-
-    while db.query(User).filter(User.username == username).first():
-        suffix += 1
-        username = f"{base_name[:24]}_{suffix}"
-
-    return username
-
-
 def _set_user_password(user: User, password: str) -> None:
     salt = secrets.token_hex(16)
     user.password_salt = salt
@@ -132,28 +106,32 @@ def _set_user_recovery(user: User, question: str, answer: str) -> None:
     user.password_recovery_answer_hash = _hash_recovery_answer(answer, recovery_salt)
 
 
-def _create_rescued_user(db, email: str, question: str, answer: str, password: str) -> User:
-    username = _make_username_from_email(db, email)
-    display_name = email.split("@", 1)[0] or username
-    user = User(
-        username=username,
-        email=email,
-        display_name=display_name,
-    )
-    _set_user_password(user, password)
-    _set_user_recovery(user, question, answer)
-
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
-
-
 def _has_recovery_credentials(user: User) -> bool:
     return bool(
         getattr(user, "password_recovery_question", None)
         and getattr(user, "password_recovery_answer_salt", None)
         and getattr(user, "password_recovery_answer_hash", None)
+    )
+
+
+def _get_user_by_email(db, email: str) -> Optional[User]:
+    return (
+        db.query(User)
+        .filter(User.email == email)
+        .order_by(User.id.asc())
+        .first()
+    )
+
+
+def _get_user_by_identifier(db, identifier: str) -> Optional[User]:
+    if "@" in identifier:
+        return _get_user_by_email(db, identifier)
+
+    return (
+        db.query(User)
+        .filter(User.username == identifier)
+        .order_by(User.id.asc())
+        .first()
     )
 
 
@@ -320,31 +298,17 @@ def verify_password_recovery(payload: PasswordRecoveryVerifyRequest):
 
     db = SessionLocal()
     try:
-        user = db.query(User).filter(User.email == email).first()
-        if not user and _demo_account_rescue_enabled():
-            return {
-                "message": "Аккаунт можно восстановить",
-                "can_reset": True,
-                "account_missing": True,
-            }
-
-        if user and not _has_recovery_credentials(user) and _demo_account_rescue_enabled():
-            return {
-                "message": "Доступ можно восстановить",
-                "can_reset": True,
-                "recovery_missing": True,
-            }
-
-        if user and _demo_account_rescue_enabled():
-            return {
-                "message": "Доступ можно восстановить",
-                "can_reset": True,
-                "recovery_resync_available": True,
-            }
+        user = _get_user_by_email(db, email)
+        if not user:
+            raise HTTPException(status_code=404, detail="Аккаунт с этой почтой не найден")
+        if not _has_recovery_credentials(user):
+            raise HTTPException(
+                status_code=409,
+                detail="Для этого аккаунта не настроено восстановление по вопросу",
+            )
 
         if (
-            not user
-            or _normalize(getattr(user, "password_recovery_question", "")) != question
+            _normalize(getattr(user, "password_recovery_question", "")) != question
             or not _verify_recovery_answer(
                 payload.recovery_answer,
                 getattr(user, "password_recovery_answer_salt", ""),
@@ -375,58 +339,17 @@ def reset_password(payload: PasswordResetRequest):
 
     db = SessionLocal()
     try:
-        user = db.query(User).filter(User.email == email).first()
-        if not user and _demo_account_rescue_enabled():
-            user = _create_rescued_user(
-                db,
-                email,
-                question,
-                payload.recovery_answer,
-                payload.new_password,
+        user = _get_user_by_email(db, email)
+        if not user:
+            raise HTTPException(status_code=404, detail="Аккаунт с этой почтой не найден")
+        if not _has_recovery_credentials(user):
+            raise HTTPException(
+                status_code=409,
+                detail="Для этого аккаунта не настроено восстановление по вопросу",
             )
-            return {
-                "message": "Аккаунт восстановлен",
-                "token": create_token(user),
-                "user": _user_to_dict(user),
-                "account_created": True,
-            }
-
-        if user and not _has_recovery_credentials(user) and _demo_account_rescue_enabled():
-            _set_user_password(user, payload.new_password)
-            _set_user_recovery(user, question, payload.recovery_answer)
-            db.commit()
-            db.refresh(user)
-
-            return {
-                "message": "Доступ к аккаунту восстановлен",
-                "token": create_token(user),
-                "user": _user_to_dict(user),
-                "recovery_repaired": True,
-            }
-
-        if user and _demo_account_rescue_enabled() and (
-            _normalize(getattr(user, "password_recovery_question", "")) != question
-            or not _verify_recovery_answer(
-                payload.recovery_answer,
-                getattr(user, "password_recovery_answer_salt", ""),
-                getattr(user, "password_recovery_answer_hash", ""),
-            )
-        ):
-            _set_user_password(user, payload.new_password)
-            _set_user_recovery(user, question, payload.recovery_answer)
-            db.commit()
-            db.refresh(user)
-
-            return {
-                "message": "Доступ к аккаунту восстановлен",
-                "token": create_token(user),
-                "user": _user_to_dict(user),
-                "recovery_resynced": True,
-            }
 
         if (
-            not user
-            or _normalize(getattr(user, "password_recovery_question", "")) != question
+            _normalize(getattr(user, "password_recovery_question", "")) != question
             or not _verify_recovery_answer(
                 payload.recovery_answer,
                 getattr(user, "password_recovery_answer_salt", ""),
@@ -454,11 +377,7 @@ def login(payload: LoginRequest):
 
     db = SessionLocal()
     try:
-        user = (
-            db.query(User)
-            .filter(or_(User.username == identifier, User.email == identifier))
-            .first()
-        )
+        user = _get_user_by_identifier(db, identifier)
         if not user or not _verify_password(
             payload.password,
             user.password_salt,

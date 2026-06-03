@@ -17,17 +17,27 @@ def _is_render_ephemeral_sqlite(database_url: str) -> bool:
     return database_url.startswith("sqlite") and "/var/data/" not in database_url
 
 
+def _has_render_data_disk() -> bool:
+    return os.path.isdir(RENDER_DATA_DIR)
+
+
+def _should_use_persistent_sqlite(database_url: str) -> bool:
+    if not (os.getenv("RENDER") or _has_render_data_disk()):
+        return False
+    return (
+        database_url in LOCAL_SQLITE_URLS
+        or _is_render_ephemeral_sqlite(database_url)
+    )
+
+
 def _default_database_url() -> str:
-    if os.getenv("RENDER"):
+    if os.getenv("RENDER") or _has_render_data_disk():
         return _render_database_url()
     return "sqlite:///./auction.db"
 
 
 _configured_database_url = os.getenv("DATABASE_URL", "").strip()
-if os.getenv("RENDER") and (
-    _configured_database_url in LOCAL_SQLITE_URLS
-    or _is_render_ephemeral_sqlite(_configured_database_url)
-):
+if _should_use_persistent_sqlite(_configured_database_url):
     DATABASE_URL = _render_database_url()
 else:
     DATABASE_URL = _configured_database_url or _default_database_url()

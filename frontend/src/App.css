@@ -1277,6 +1277,31 @@ label,
   margin: 0;
 }
 
+.recommendation-result-card {
+  display: grid;
+  gap: 6px;
+}
+
+.recommendation-result-card.highlight {
+  background: #f5e4d1;
+  border-color: rgba(116, 73, 44, 0.24);
+}
+
+.recommendation-result-card p {
+  color: #5a4539;
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.recommendation-wide-card {
+  grid-column: 1 / -1;
+}
+
+.recommendation-apply-btn {
+  grid-column: 1 / -1;
+}
+
 .offer-result {
   border-radius: 14px;
   padding: 14px;
@@ -7910,27 +7935,80 @@ button:active {
 }
 
 .product-media-row {
-  grid-template-columns: minmax(0, 1fr) !important;
+  align-items: stretch !important;
+  display: grid !important;
+  gap: 18px !important;
+  grid-template-columns: minmax(0, 1fr) minmax(148px, 178px) !important;
+}
+
+.product-media-row .product-main-image {
+  align-self: stretch !important;
+  aspect-ratio: 3 / 4 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  min-height: 560px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+.product-image-open {
+  align-items: center !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  display: flex !important;
+  height: 100% !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+.product-image-open:hover,
+.product-image-open:active {
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+.product-main-img {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  display: block !important;
+  height: 100% !important;
+  max-height: min(78vh, 780px) !important;
+  object-fit: contain !important;
+  object-position: center center !important;
+  width: 100% !important;
 }
 
 .product-side-signals {
+  align-self: stretch !important;
   display: grid !important;
   gap: 12px !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  grid-template-rows: none !important;
+  grid-template-columns: 1fr !important;
+  grid-template-rows: repeat(3, minmax(0, 1fr)) !important;
 }
 
 .product-side-signals > button,
 .product-side-signals .signal-static {
   align-content: center !important;
+  background: rgba(255, 250, 244, 0.9) !important;
+  border: 1px solid rgba(116, 73, 44, 0.22) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 12px 26px rgba(72, 44, 25, 0.08) !important;
   display: grid !important;
-  gap: 6px !important;
+  gap: 10px !important;
   grid-template-columns: 1fr !important;
   justify-items: center !important;
-  min-height: 82px !important;
+  min-height: 126px !important;
   min-width: 0 !important;
   overflow: hidden !important;
-  padding: 13px 12px !important;
+  padding: 16px 14px !important;
   text-align: center !important;
 }
 
@@ -7940,8 +8018,9 @@ button:active {
 }
 
 .product-side-signals span {
+  color: #6a3a20 !important;
   display: block !important;
-  font-size: 14px !important;
+  font-size: 15px !important;
   line-height: 1.18 !important;
   max-width: 100% !important;
   overflow-wrap: anywhere !important;
@@ -7952,10 +8031,16 @@ button:active {
 .product-side-signals strong,
 .product-signal-button strong,
 .product-side-signals .signal-static strong {
+  color: #1b0f08 !important;
   font-size: clamp(24px, 2.1vw, 32px) !important;
   justify-self: center !important;
   line-height: 1 !important;
   text-align: center !important;
+}
+
+.product-signal-button.active-signal span,
+.product-signal-button.active-signal strong {
+  color: #fff8ef !important;
 }
 
 @media (max-width: 900px) {
@@ -7980,6 +8065,26 @@ button:active {
   .account-nav-btn,
   .account-bar .logout-btn {
     flex: 1 1 150px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .product-media-row {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .product-media-row .product-main-image {
+    min-height: 440px !important;
+  }
+
+  .product-side-signals {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    grid-template-rows: none !important;
+  }
+
+  .product-side-signals > button,
+  .product-side-signals .signal-static {
+    min-height: 88px !important;
   }
 }
 
@@ -8017,6 +8122,78 @@ button:active {
   }
 
   .product-side-signals {
+    grid-template-columns: 1fr !important;
+  }
+
+  .product-media-row .product-main-image {
+    min-height: 360px !important;
+  }
+}
+
+button {
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease,
+    filter 0.16s ease,
+    transform 0.12s ease !important;
+}
+
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+button:not(:disabled):not(.product-image-open):hover {
+  filter: brightness(0.98);
+}
+
+.primary-btn:not(:disabled):hover,
+.nav-btn.active:not(:disabled):hover,
+.analysis-open-btn:not(:disabled):hover,
+.logout-btn:not(:disabled):hover {
+  background: #5a2f1b !important;
+  border-color: #5a2f1b !important;
+  color: #fff8ef !important;
+}
+
+.secondary-btn:not(:disabled):hover,
+.nav-btn:not(.active):not(:disabled):hover,
+.product-signal-button:not(.active-signal):not(:disabled):hover,
+.account-nav-btn:not(:disabled):hover {
+  background: #efe1cf !important;
+  border-color: #b7835c !important;
+  color: #24140c !important;
+}
+
+.product-signal-button.active-signal:not(:disabled):hover {
+  background: #6a3a20 !important;
+  border-color: #6a3a20 !important;
+  color: #fff8ef !important;
+}
+
+.danger-btn:not(:disabled):hover {
+  background: #8c2d1f !important;
+  border-color: #8c2d1f !important;
+  color: #fff8ef !important;
+}
+
+button:not(:disabled):not(.product-image-open):active {
+  filter: brightness(0.94);
+  transform: translateY(1px) scale(0.99) !important;
+}
+
+.recommendation-result {
+  align-items: stretch;
+}
+
+.recommendation-result > .recommendation-result-card {
+  border-radius: 12px;
+  min-height: 104px;
+}
+
+@media (max-width: 720px) {
+  .recommendation-result {
     grid-template-columns: 1fr !important;
   }
 }

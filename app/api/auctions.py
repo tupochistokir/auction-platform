@@ -1223,12 +1223,12 @@ def place_bid(
 
         current_price = float(auction.current_price or 0)
         bid_step = float(auction.recommended_bid_step or 100)
-        min_allowed_bid = round(current_price + bid_step, 2)
+        min_allowed_bid = round(current_price + bid_step)
 
         if bid.amount < min_allowed_bid:
             raise HTTPException(
                 status_code=400,
-                detail=f"Ставка слишком мала. Минимальная допустимая ставка: {min_allowed_bid}",
+                detail=f"Ставка слишком мала. Минимальная допустимая ставка: {min_allowed_bid} ₽",
             )
 
         new_bid = Bid(
@@ -1257,9 +1257,9 @@ def place_bid(
         return {
             "message": "Ставка успешно принята",
             "auction_id": auction.id,
-            "previous_price": current_price,
-            "new_price": auction.current_price,
-            "bid_step": bid_step,
+            "previous_price": round(current_price),
+            "new_price": round(float(auction.current_price or 0)),
+            "bid_step": round(bid_step),
             "min_allowed_bid": min_allowed_bid,
             "auction_extended": auction_extended,
             "new_end_time": new_end_time,
@@ -1366,13 +1366,16 @@ def recommend_bid(auction_id: int, request: BidRecommendationRequest):
 
         current_price = float(auction.current_price or 0)
         bid_step = float(auction.recommended_bid_step or 100)
-        min_allowed_bid = round(current_price + bid_step, 2)
+        min_allowed_bid = round(current_price + bid_step)
 
         recommendation = calculate_recommended_bid(
             current_price=current_price,
             user_value=float(request.user_value),
             bid_step=bid_step,
         )
+        if recommendation.get("recommended_bid") is not None:
+            recommendation["recommended_bid"] = round(float(recommendation["recommended_bid"]))
+        recommendation["utility"] = round(float(recommendation.get("utility") or 0))
 
         analysis = auction.analysis or calculate_full_pricing(auction.questionnaire or {})
         recommendation_pricing_data = {
@@ -1383,10 +1386,10 @@ def recommend_bid(auction_id: int, request: BidRecommendationRequest):
         return {
             "message": "Рекомендация ставки рассчитана по функции полезности",
             "auction_id": auction.id,
-            "current_price": current_price,
-            "bid_step": bid_step,
+            "current_price": round(current_price),
+            "bid_step": round(bid_step),
             "min_allowed_bid": min_allowed_bid,
-            "user_value": float(request.user_value),
+            "user_value": round(float(request.user_value)),
             "recommended_bid": recommendation,
             "user_advice": generate_user_advice(
                 recommendation_pricing_data,
@@ -1434,7 +1437,7 @@ def make_offer(
         if offer.amount <= current_price:
             raise HTTPException(
                 status_code=400,
-                detail=f"Оффер должен быть выше текущей цены: {current_price}",
+                detail=f"Оффер должен быть выше текущей цены: {round(current_price)} ₽",
             )
 
         analysis = auction.analysis or calculate_full_pricing(auction.questionnaire or {})
@@ -1443,7 +1446,7 @@ def make_offer(
             analysis.get("auction_activity_live", analysis.get("auction_attractiveness", 0.5))
         )
         risk_discount = 0.12 + 0.18 * (1 - attractiveness)
-        seller_wait_utility = round(expected_price * (1 - risk_discount), 2)
+        seller_wait_utility = round(expected_price * (1 - risk_discount))
 
         bid_step = float(auction.recommended_bid_step or 100)
         if offer.amount >= seller_wait_utility:
@@ -1454,7 +1457,7 @@ def make_offer(
             counter_amount = seller_wait_utility
         else:
             recommendation = "reject"
-            counter_amount = round(current_price + bid_step, 2)
+            counter_amount = round(current_price + bid_step)
 
         new_offer = Offer(
             auction_id=auction_id,

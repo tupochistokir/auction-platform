@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const toFiniteNumber = (value) => {
+  if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 };
@@ -319,11 +320,6 @@ function PricingExplanation({ analysis }) {
           hint: "A_pre влияет на стартовую цену и начальный шаг ставки.",
         },
         {
-          label: "Активность торгов (A_live)",
-          value: formatScore(analysis?.auction_activity_live ?? analysis?.auction_attractiveness),
-          hint: "A_live используется после публикации для прогноза финала и решений продавца.",
-        },
-        {
           label: "Поведение ставок (B)",
           value: formatScore(analysis?.buyer_behavior_score),
           hint: "B учитывает фактическое число ставок, конкуренцию и медианный рост цены по датасету аукционов.",
@@ -451,6 +447,8 @@ function ProductPage({
   const [now, setNow] = useState(0);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const bidFormRef = useRef(null);
+  const bidAmountInputRef = useRef(null);
 
   useEffect(() => {
     const initialTick = window.setTimeout(() => setNow(Date.now()), 0);
@@ -493,14 +491,12 @@ function ProductPage({
     ["Q_r", "Редкость", analysis.rarity_score],
     ["Q", "Ценность", analysis.confirmed_value_score],
     ["A_pre", "Потенциал до старта", analysis.auction_potential_pre],
-    ["A_live", "Активность торгов", analysis.auction_activity_live ?? analysis.auction_attractiveness],
   ];
 
   const formulaRows = [
     ["P_start", formulaExplanation.start_price],
     ["Step", formulaExplanation.bid_step],
     ["A_pre", formulaExplanation.auction_potential_pre],
-    ["A_live", formulaExplanation.auction_activity_live || formulaExplanation.auction_attractiveness],
     ["B_bid", formulaExplanation.auction_behavior],
     ["E[P_final]", formulaExplanation.expected_final_price],
   ].filter(([, formula]) => Boolean(formula));
@@ -609,7 +605,29 @@ function ProductPage({
     pendingOffers.length
   );
   const recommendedBidValue = bidRecommendation?.recommended_bid?.recommended_bid;
+  const recommendedBidNumber = toFiniteNumber(recommendedBidValue);
+  const roundedRecommendedBid =
+    recommendedBidNumber === null ? null : Math.round(recommendedBidNumber);
+  const roundedMinBid = Math.round(minBid);
+  const userValueNumber = toFiniteNumber(userValue);
+  const recommendationReserve =
+    roundedRecommendedBid === null || userValueNumber === null
+      ? null
+      : Math.max(0, Math.round(userValueNumber - roundedRecommendedBid));
+  const recommendationAboveMinimum =
+    roundedRecommendedBid === null
+      ? null
+      : Math.max(0, roundedRecommendedBid - roundedMinBid);
   const characteristicRows = buildCharacteristicRows(selectedAuction);
+  const applyRecommendedBid = () => {
+    if (roundedRecommendedBid === null) return;
+
+    setBidAmount(String(roundedRecommendedBid));
+    window.setTimeout(() => {
+      bidFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      bidAmountInputRef.current?.focus();
+    }, 0);
+  };
 
   return (
     <>
@@ -787,7 +805,7 @@ function ProductPage({
             </button>
           )}
 
-          <div className="bid-form-card">
+          <div className="bid-form-card" ref={bidFormRef}>
             <h3>Сделать ставку</h3>
 
             {bidError && <div className="error-box">{bidError}</div>}
@@ -806,8 +824,10 @@ function ProductPage({
               <div className="field">
                 <label>Сумма ставки</label>
                 <input
+                  ref={bidAmountInputRef}
                   type="number"
                   step="1"
+                  inputMode="numeric"
                   value={bidAmount}
                   onChange={(e) => setBidAmount(e.target.value)}
                 />
@@ -830,8 +850,8 @@ function ProductPage({
           <div className="bid-form-card buyer-helper-card">
             <h3>Рекомендованная ставка</h3>
             <p className="helper-text">
-              Введи максимум, который товар стоит лично для тебя. Модель перебирает
-              возможные ставки и выбирает ту, где полезность выигрыша максимальна.
+              Введи максимум, который товар реально стоит для тебя. Подсказка сравнит
+              его с текущей ценой и шагом ставки, не раскрывая твою оценку продавцу.
             </p>
 
             {recommendationError && <div className="error-box">{recommendationError}</div>}
@@ -842,6 +862,7 @@ function ProductPage({
                 <input
                   type="number"
                   step="1"
+                  inputMode="numeric"
                   value={userValue}
                   onChange={(e) => setUserValue(e.target.value)}
                 />
@@ -861,38 +882,48 @@ function ProductPage({
             </form>
 
             {bidRecommendation && (
-              <div className="recommendation-result">
-                <div>
-                  <span>Ставка</span>
-                  <strong>
-                    {recommendedBidValue
-                      ? formatMoney(recommendedBidValue)
-                      : "Ставка невыгодна"}
-                  </strong>
-                </div>
-                <div>
-                  <span>Шанс</span>
-                  <strong>
-                    {formatScore(bidRecommendation.recommended_bid?.win_probability)}
-                  </strong>
-                </div>
-                <div>
-                  <span>Выгода</span>
-                  <strong>{formatMoney(bidRecommendation.recommended_bid?.utility)}</strong>
-                </div>
+              <div className={`recommendation-result ${roundedRecommendedBid === null ? "is-muted" : ""}`}>
+                {roundedRecommendedBid === null ? (
+                  <div className="recommendation-result-card recommendation-wide-card">
+                    <span>Совет</span>
+                    <strong>Лучше не ставить</strong>
+                    <p>
+                      Сейчас минимальная ставка {formatMoney(minBid)}, а твой максимум
+                      ниже этой суммы.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="recommendation-result-card highlight">
+                      <span>Рекомендуемая ставка</span>
+                      <strong>{formatMoney(roundedRecommendedBid)}</strong>
+                    </div>
+                    <div className="recommendation-result-card">
+                      <span>Минимум сейчас</span>
+                      <strong>{formatMoney(minBid)}</strong>
+                    </div>
+                    <div className="recommendation-result-card">
+                      <span>Запас до максимума</span>
+                      <strong>{formatMoney(recommendationReserve)}</strong>
+                    </div>
+                  </>
+                )}
 
                 <p className="recommendation-explain buyer-only-note">
-                  s* — рекомендуемая ставка, P_win — оценка вероятности выигрыша,
-                  U(s) — польза ставки с учётом твоего максимума.
+                  {roundedRecommendedBid === null
+                    ? "Подсказка не видна продавцу и нужна только для твоего решения."
+                    : `Сумма выше обязательного минимума на ${formatMoney(
+                        recommendationAboveMinimum
+                      )}, но не тратит весь твой личный максимум.`}
                 </p>
 
-                {recommendedBidValue && (
+                {roundedRecommendedBid !== null && (
                   <button
                     type="button"
-                    className="secondary-btn full"
-                    onClick={() => setBidAmount(String(Math.round(Number(recommendedBidValue))))}
+                    className="secondary-btn full recommendation-apply-btn"
+                    onClick={applyRecommendedBid}
                   >
-                    Подставить в форму ставки
+                    Поставить эту сумму в поле ставки
                   </button>
                 )}
               </div>
@@ -929,6 +960,7 @@ function ProductPage({
                 <input
                   type="number"
                   step="1"
+                  inputMode="numeric"
                   value={offerAmount}
                   onChange={(e) => setOfferAmount(e.target.value)}
                 />
@@ -1005,98 +1037,98 @@ function ProductPage({
         </div>
       )}
 
-      <section className="price-dynamics-section">
-        <div className="panel-header">
-          <h3>Карта торгов</h3>
-          <span className="chart-caption">
-            {bids.length} ставок
-          </span>
-        </div>
-
-        <div className="trade-insight-grid">
-          <div className="trade-insight-card buyer">
-            <span>Покупателю</span>
-            <p>{insight.buyer}</p>
+      {hasPrivateAnalysis && (
+        <section className="price-dynamics-section">
+          <div className="panel-header">
+            <h3>Карта торгов</h3>
+            <span className="chart-caption">
+              {bids.length} ставок
+            </span>
           </div>
-          {hasPrivateAnalysis && (
+
+          <div className="trade-insight-grid">
+            <div className="trade-insight-card buyer">
+              <span>Покупателю</span>
+              <p>{insight.buyer}</p>
+            </div>
             <div className="trade-insight-card seller">
               <span>Продавцу</span>
               <p>{insight.seller}</p>
             </div>
-          )}
-        </div>
-
-        {overInitialForecast && (
-          <div className="forecast-break-card">
-            <strong>Прогноз перебит</strong>
-            <p>
-              Текущая цена выше исходного прогноза модели в {forecastRatio.toFixed(1)} раза.
-              На графике это показано отдельной линией «Исходный прогноз», чтобы рост не
-              прятался за автоматическим масштабом.
-            </p>
           </div>
-        )}
 
-        <div className="trade-map">
-          <svg viewBox="0 0 100 56" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-            <rect className="zone-bargain" x="0" y={yForPrice(basePrice)} width="100" height={56 - yForPrice(basePrice)} />
-            <rect
-              className="zone-fair"
-              x="0"
-              y={yForPrice(expectedPrice)}
-              width="100"
-              height={Math.max(1, yForPrice(basePrice) - yForPrice(expectedPrice))}
-            />
-            <rect className="zone-hot" x="0" y="0" width="100" height={yForPrice(expectedPrice)} />
+          {overInitialForecast && (
+            <div className="forecast-break-card">
+              <strong>Прогноз перебит</strong>
+              <p>
+                Текущая цена выше исходного прогноза модели в {forecastRatio.toFixed(1)} раза.
+                На графике это показано отдельной линией «Исходный прогноз», чтобы рост не
+                прятался за автоматическим масштабом.
+              </p>
+            </div>
+          )}
 
-            {guideLines.map((line) => (
-              <g className={`guide-line ${line.className}`} key={line.label}>
-                <line x1="0" x2="100" y1={yForPrice(line.amount)} y2={yForPrice(line.amount)} />
-              </g>
-            ))}
+          <div className="trade-map">
+            <svg viewBox="0 0 100 56" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+              <rect className="zone-bargain" x="0" y={yForPrice(basePrice)} width="100" height={56 - yForPrice(basePrice)} />
+              <rect
+                className="zone-fair"
+                x="0"
+                y={yForPrice(expectedPrice)}
+                width="100"
+                height={Math.max(1, yForPrice(basePrice) - yForPrice(expectedPrice))}
+              />
+              <rect className="zone-hot" x="0" y="0" width="100" height={yForPrice(expectedPrice)} />
 
-            <polyline className="bid-line" points={priceLine} />
+              {guideLines.map((line) => (
+                <g className={`guide-line ${line.className}`} key={line.label}>
+                  <line x1="0" x2="100" y1={yForPrice(line.amount)} y2={yForPrice(line.amount)} />
+                </g>
+              ))}
 
-            {tradeSvgPoints.map((point, index) => (
-              <g
-                className={`trade-point ${point.kind} ${point.status || ""}`}
-                key={`${point.kind}-${point.label}-${index}`}
-              >
-                <circle cx={point.x} cy={point.y} r={point.kind === "offer" ? "1.8" : "1.7"} />
-              </g>
-            ))}
-          </svg>
+              <polyline className="bid-line" points={priceLine} />
 
-          <div className="trade-map-labels">
-            {guideLines.map((line) => (
-              <div className={`trade-map-label ${line.className}`} key={line.label}>
-                <span>{line.label}</span>
-                <strong>{formatMoney(line.amount)}</strong>
+              {tradeSvgPoints.map((point, index) => (
+                <g
+                  className={`trade-point ${point.kind} ${point.status || ""}`}
+                  key={`${point.kind}-${point.label}-${index}`}
+                >
+                  <circle cx={point.x} cy={point.y} r={point.kind === "offer" ? "1.8" : "1.7"} />
+                </g>
+              ))}
+            </svg>
+
+            <div className="trade-map-labels">
+              {guideLines.map((line) => (
+                <div className={`trade-map-label ${line.className}`} key={line.label}>
+                  <span>{line.label}</span>
+                  <strong>{formatMoney(line.amount)}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="trade-legend">
+            <span><i className="legend-dot bid" /> ставка</span>
+            <span><i className="legend-dot offer" /> оффер</span>
+            <span><i className="legend-line" /> ход текущей цены</span>
+          </div>
+
+          <div className="chart-points-list">
+            {tradeEvents.map((point, index) => (
+              <div className={`chart-point-row ${point.kind}`} key={`${point.label}-${index}`}>
+                <span>{point.label}</span>
+                <strong>{formatMoney(point.amount)}</strong>
+                <p>
+                  {point.kind === "offer"
+                    ? `${getDecisionLabel(point.status)} · ${getRecommendationLabel(point.recommendation)}`
+                    : formatDateTime(point.created_at)}
+                </p>
               </div>
             ))}
           </div>
-        </div>
-
-        <div className="trade-legend">
-          <span><i className="legend-dot bid" /> ставка</span>
-          <span><i className="legend-dot offer" /> оффер</span>
-          <span><i className="legend-line" /> ход текущей цены</span>
-        </div>
-
-        <div className="chart-points-list">
-          {tradeEvents.map((point, index) => (
-            <div className={`chart-point-row ${point.kind}`} key={`${point.label}-${index}`}>
-              <span>{point.label}</span>
-              <strong>{formatMoney(point.amount)}</strong>
-              <p>
-                {point.kind === "offer"
-                  ? `${getDecisionLabel(point.status)} · ${getRecommendationLabel(point.recommendation)}`
-                  : formatDateTime(point.created_at)}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
+        </section>
+      )}
 
       {imageViewerOpen && visibleImage && (
         <div className="image-lightbox" role="dialog" aria-modal="true">
