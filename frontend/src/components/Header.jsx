@@ -76,10 +76,6 @@ function Header({
               Кабинет
             </button>
 
-            <button className="nav-btn account-nav-btn" onClick={goToProfile} type="button">
-              Редактировать
-            </button>
-
             <button className="logout-btn" type="button" onClick={onLogout}>
               Выйти
             </button>
