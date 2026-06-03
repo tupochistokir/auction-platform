@@ -93,6 +93,70 @@ def _verify_recovery_answer(answer: str, salt: str, expected_hash: str) -> bool:
     return hmac.compare_digest(actual_hash, expected_hash or "")
 
 
+def _demo_account_rescue_enabled() -> bool:
+    value = os.getenv("DEMO_ACCOUNT_RESCUE", "1").strip().lower()
+    return value not in {"0", "false", "no", "off"}
+
+
+def _make_username_from_email(db, email: str) -> str:
+    local_part = (email.split("@", 1)[0] or "user").lower()
+    safe_name = "".join(
+        char if char.isalnum() or char == "_" else "_"
+        for char in local_part
+    ).strip("_")
+
+    if len(safe_name) < 3:
+        safe_name = f"user_{secrets.token_hex(2)}"
+
+    base_name = safe_name[:28]
+    username = base_name
+    suffix = 1
+
+    while db.query(User).filter(User.username == username).first():
+        suffix += 1
+        username = f"{base_name[:24]}_{suffix}"
+
+    return username
+
+
+def _set_user_password(user: User, password: str) -> None:
+    salt = secrets.token_hex(16)
+    user.password_salt = salt
+    user.password_hash = _hash_password(password, salt)
+
+
+def _set_user_recovery(user: User, question: str, answer: str) -> None:
+    recovery_salt = secrets.token_hex(16)
+    user.password_recovery_question = _normalize(question)
+    user.password_recovery_answer_salt = recovery_salt
+    user.password_recovery_answer_hash = _hash_recovery_answer(answer, recovery_salt)
+
+
+def _create_rescued_user(db, email: str, question: str, answer: str, password: str) -> User:
+    username = _make_username_from_email(db, email)
+    display_name = email.split("@", 1)[0] or username
+    user = User(
+        username=username,
+        email=email,
+        display_name=display_name,
+    )
+    _set_user_password(user, password)
+    _set_user_recovery(user, question, answer)
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def _has_recovery_credentials(user: User) -> bool:
+    return bool(
+        getattr(user, "password_recovery_question", None)
+        and getattr(user, "password_recovery_answer_salt", None)
+        and getattr(user, "password_recovery_answer_hash", None)
+    )
+
+
 def _b64encode(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).decode("ascii").rstrip("=")
 
@@ -247,9 +311,30 @@ def verify_password_recovery(payload: PasswordRecoveryVerifyRequest):
     email = _normalize(payload.email)
     question = _normalize(payload.recovery_question)
 
+    if "@" not in email or "." not in email:
+        raise HTTPException(status_code=400, detail="Введите корректный email")
+    if not question:
+        raise HTTPException(status_code=400, detail="Выберите вопрос для восстановления пароля")
+    if len(_normalize_answer(payload.recovery_answer)) < 2:
+        raise HTTPException(status_code=400, detail="Ответ должен быть не короче 2 символов")
+
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.email == email).first()
+        if not user and _demo_account_rescue_enabled():
+            return {
+                "message": "Аккаунт можно восстановить",
+                "can_reset": True,
+                "account_missing": True,
+            }
+
+        if user and not _has_recovery_credentials(user) and _demo_account_rescue_enabled():
+            return {
+                "message": "Доступ можно восстановить",
+                "can_reset": True,
+                "recovery_missing": True,
+            }
+
         if (
             not user
             or _normalize(getattr(user, "password_recovery_question", "")) != question
@@ -271,12 +356,47 @@ def reset_password(payload: PasswordResetRequest):
     email = _normalize(payload.email)
     question = _normalize(payload.recovery_question)
 
+    if "@" not in email or "." not in email:
+        raise HTTPException(status_code=400, detail="Введите корректный email")
+    if not question:
+        raise HTTPException(status_code=400, detail="Выберите вопрос для восстановления пароля")
+    if len(_normalize_answer(payload.recovery_answer)) < 2:
+        raise HTTPException(status_code=400, detail="Ответ должен быть не короче 2 символов")
+
     if len(payload.new_password or "") < 6:
         raise HTTPException(status_code=400, detail="Новый пароль должен быть не короче 6 символов")
 
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.email == email).first()
+        if not user and _demo_account_rescue_enabled():
+            user = _create_rescued_user(
+                db,
+                email,
+                question,
+                payload.recovery_answer,
+                payload.new_password,
+            )
+            return {
+                "message": "Аккаунт восстановлен",
+                "token": create_token(user),
+                "user": _user_to_dict(user),
+                "account_created": True,
+            }
+
+        if user and not _has_recovery_credentials(user) and _demo_account_rescue_enabled():
+            _set_user_password(user, payload.new_password)
+            _set_user_recovery(user, question, payload.recovery_answer)
+            db.commit()
+            db.refresh(user)
+
+            return {
+                "message": "Доступ к аккаунту восстановлен",
+                "token": create_token(user),
+                "user": _user_to_dict(user),
+                "recovery_repaired": True,
+            }
+
         if (
             not user
             or _normalize(getattr(user, "password_recovery_question", "")) != question
@@ -288,9 +408,7 @@ def reset_password(payload: PasswordResetRequest):
         ):
             raise HTTPException(status_code=401, detail="Не удалось подтвердить владельца аккаунта")
 
-        salt = secrets.token_hex(16)
-        user.password_salt = salt
-        user.password_hash = _hash_password(payload.new_password, salt)
+        _set_user_password(user, payload.new_password)
         db.commit()
         db.refresh(user)
 
