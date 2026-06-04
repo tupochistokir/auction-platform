@@ -1,9 +1,17 @@
+databases:
+  # PostgreSQL keeps accounts, lots, bids, offers, and recovery data across deploys.
+  - name: auction-platform-db
+    plan: free
+    databaseName: auction_platform
+    user: auction_user
+
 services:
   - type: web
     name: auction-platform-api
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # Disk keeps uploaded lot photos across deploys; PostgreSQL keeps database rows.
     disk:
       name: auction-platform-data
       mountPath: /var/data
@@ -16,7 +24,9 @@ services:
       - key: FRONTEND_ORIGINS
         sync: false
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: auction-platform-db
+          property: connectionString
       - key: UPLOAD_DIR
         value: /var/data/uploads
       - key: AUCTION_AUTH_SECRET
