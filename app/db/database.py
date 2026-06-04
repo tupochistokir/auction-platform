@@ -18,7 +18,7 @@ def _is_render_ephemeral_sqlite(database_url: str) -> bool:
 
 
 def _has_render_data_disk() -> bool:
-    return os.path.isdir(RENDER_DATA_DIR)
+    return os.path.ismount(RENDER_DATA_DIR)
 
 
 def _should_use_persistent_sqlite(database_url: str) -> bool:
@@ -49,6 +49,38 @@ engine = create_engine(DATABASE_URL, connect_args=connect_args)
 
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
+
+
+def get_database_diagnostics() -> dict:
+    is_sqlite = DATABASE_URL.startswith("sqlite")
+    is_render = bool(os.getenv("RENDER"))
+    sqlite_path = None
+    if is_sqlite:
+        sqlite_path = DATABASE_URL.replace("sqlite:///", "", 1)
+    render_data_dir_is_mount = os.path.ismount(RENDER_DATA_DIR)
+    persistent_storage = (
+        not is_sqlite
+        or not is_render
+        or (
+            os.path.abspath(sqlite_path or "") == RENDER_SQLITE_PATH
+            and render_data_dir_is_mount
+        )
+    )
+
+    return {
+        "kind": "sqlite" if is_sqlite else DATABASE_URL.split(":", 1)[0],
+        "render": is_render,
+        "configured_database_url": bool(_configured_database_url),
+        "sqlite_path": sqlite_path,
+        "render_data_dir_exists": os.path.isdir(RENDER_DATA_DIR),
+        "render_data_dir_is_mount": render_data_dir_is_mount,
+        "persistent_storage": persistent_storage,
+        "warning": (
+            "Render SQLite storage is ephemeral until a Persistent Disk is mounted at /var/data or DATABASE_URL points to PostgreSQL."
+            if is_render and is_sqlite and not persistent_storage
+            else None
+        ),
+    }
 
 
 def ensure_sqlite_schema() -> None:
