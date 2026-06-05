@@ -8217,17 +8217,19 @@ button:not(:disabled):not(.product-image-open):active {
 .seller-private-grid .profile-row.seller-final-range-row {
   align-items: center !important;
   display: grid !important;
-  gap: 14px !important;
+  gap: 8px !important;
   grid-column: span 2 !important;
-  grid-template-columns: minmax(120px, 0.85fr) minmax(180px, 1.15fr) !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  justify-items: center !important;
   min-height: 116px !important;
-  text-align: left !important;
+  text-align: center !important;
 }
 
 .seller-final-range-row span {
   display: block !important;
   line-height: 1.12 !important;
-  margin-bottom: 7px !important;
+  margin-bottom: 0 !important;
+  max-width: 100% !important;
 }
 
 .seller-final-range-row small {
@@ -8241,22 +8243,29 @@ button:not(:disabled):not(.product-image-open):active {
 .seller-final-range-value {
   display: grid !important;
   gap: 7px !important;
-  justify-items: end !important;
+  justify-items: center !important;
+  max-width: 100% !important;
   min-width: 0 !important;
+  width: 100% !important;
 }
 
 .seller-private-grid .seller-final-range-row strong {
-  font-size: clamp(20px, 1.7vw, 28px) !important;
-  justify-self: end !important;
+  display: block !important;
+  font-size: clamp(20px, 1.8vw, 28px) !important;
+  justify-self: center !important;
   line-height: 1.08 !important;
+  max-width: 100% !important;
   overflow: visible !important;
-  text-align: right !important;
+  overflow-wrap: normal !important;
+  text-align: center !important;
   text-overflow: clip !important;
-  white-space: nowrap !important;
+  text-wrap: balance !important;
+  white-space: normal !important;
 }
 
 .seller-final-range-value small {
-  text-align: right !important;
+  max-width: 100% !important;
+  text-align: center !important;
 }
 
 @media (max-width: 680px) {
