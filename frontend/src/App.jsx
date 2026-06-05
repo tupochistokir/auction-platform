@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import Header from "./components/Header";
 import CatalogPage from "./pages/CatalogPage";
@@ -37,6 +37,15 @@ const clearAuctionIdFromUrl = () => {
 
   url.searchParams.delete(AUCTION_URL_PARAM);
   window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+};
+
+const scheduleNavigationUpdate = (update) => {
+  if (typeof window !== "undefined" && typeof window.setTimeout === "function") {
+    window.setTimeout(() => startTransition(update), 0);
+    return;
+  }
+
+  startTransition(update);
 };
 
 const toDateTimeLocalValue = (date) => {
@@ -1281,36 +1290,36 @@ function App() {
     }));
   };
 
-  const goToCatalog = () => {
+  const navigateToPage = useCallback((nextPage, nextCatalogView = null) => {
     clearAuctionIdFromUrl();
-    setAuthError("");
-    setPage("catalog");
-    setCatalogView("grid");
-  };
+    scheduleNavigationUpdate(() => {
+      setAuthError("");
+      setPage(nextPage);
+      if (nextCatalogView) {
+        setCatalogView(nextCatalogView);
+      }
+    });
+  }, []);
 
-  const goToSell = () => {
-    clearAuctionIdFromUrl();
-    setAuthError("");
-    setPage("sell");
-  };
+  const goToCatalog = useCallback(() => {
+    navigateToPage("catalog", "grid");
+  }, [navigateToPage]);
 
-  const goToProfile = () => {
-    clearAuctionIdFromUrl();
-    setAuthError("");
-    setPage("profile");
-  };
+  const goToSell = useCallback(() => {
+    navigateToPage("sell");
+  }, [navigateToPage]);
 
-  const goToFavorites = () => {
-    clearAuctionIdFromUrl();
-    setAuthError("");
-    setPage("favorites");
-  };
+  const goToProfile = useCallback(() => {
+    navigateToPage("profile");
+  }, [navigateToPage]);
 
-  const goToOffers = () => {
-    clearAuctionIdFromUrl();
-    setAuthError("");
-    setPage("offers");
-  };
+  const goToFavorites = useCallback(() => {
+    navigateToPage("favorites");
+  }, [navigateToPage]);
+
+  const goToOffers = useCallback(() => {
+    navigateToPage("offers");
+  }, [navigateToPage]);
 
   const renderAuthGate = (variant) => (
     <AuthPage

@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 function Header({
   page,
   goToCatalog,
@@ -94,4 +96,4 @@ function Header({
   );
 }
 
-export default Header;
+export default memo(Header);
