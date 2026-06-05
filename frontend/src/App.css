@@ -8043,6 +8043,22 @@ button:active {
   color: #fff8ef !important;
 }
 
+.product-side-signals > .product-signal-button,
+.product-side-signals > .signal-static {
+  align-content: center !important;
+  justify-content: center !important;
+  place-items: center !important;
+  text-align: center !important;
+}
+
+.product-side-signals > .product-signal-button span,
+.product-side-signals > .signal-static span,
+.product-side-signals > .product-signal-button strong,
+.product-side-signals > .signal-static strong {
+  justify-self: center !important;
+  text-align: center !important;
+}
+
 @media (max-width: 900px) {
   .topbar-main-row {
     grid-template-columns: 1fr;

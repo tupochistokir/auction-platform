@@ -260,7 +260,19 @@ function App() {
         }
 
         if (currentAuction) {
-          return loadedAuctions.find((a) => a.id === currentAuction.id) || currentAuction;
+          const listedAuction = loadedAuctions.find((a) => a.id === currentAuction.id);
+          if (!listedAuction) return currentAuction;
+
+          return {
+            ...currentAuction,
+            current_price: listedAuction.current_price,
+            status: listedAuction.status,
+            views_count: listedAuction.views_count,
+            likes_count: listedAuction.likes_count,
+            favorites_count: listedAuction.favorites_count,
+            total_bids: listedAuction.total_bids,
+            end_time: listedAuction.end_time,
+          };
         }
 
         return currentAuction;
@@ -754,6 +766,11 @@ function App() {
     if (!selectedAuction) return;
     if (!requireAuth("Войдите в аккаунт, чтобы сохранять реакции на лоты.")) return;
 
+    const signalKey = signal === "favorite" ? "favorited" : "liked";
+    const preservedSignalKey = signal === "favorite" ? "liked" : "favorited";
+    const previousViewerSignals = selectedAuction.viewer_signals || {};
+    if (previousViewerSignals[signalKey]) return;
+
     try {
       const response = await fetch(`${API_URL}/auctions/${selectedAuction.id}/${signal}`, {
         method: "POST",
@@ -767,9 +784,17 @@ function App() {
         throw new Error(data.detail || "Не удалось обновить реакцию на лот");
       }
 
-      setSelectedAuction(data.auction);
+      const updatedAuction = {
+        ...data.auction,
+        viewer_signals: {
+          ...(data.auction?.viewer_signals || {}),
+          [signalKey]: true,
+          [preservedSignalKey]: Boolean(previousViewerSignals[preservedSignalKey]),
+        },
+      };
+
+      setSelectedAuction(updatedAuction);
       if (signal === "favorite") {
-        const updatedAuction = data.auction;
         const isFavorite = Boolean(updatedAuction?.viewer_signals?.favorited);
         setFavoritesData((prev) => {
           const withoutCurrent = prev.filter(
@@ -781,6 +806,16 @@ function App() {
         });
       }
       await loadAuctions();
+      setSelectedAuction((currentAuction) =>
+        currentAuction?.id === updatedAuction.id
+          ? {
+              ...currentAuction,
+              likes_count: updatedAuction.likes_count,
+              favorites_count: updatedAuction.favorites_count,
+              viewer_signals: updatedAuction.viewer_signals,
+            }
+          : currentAuction
+      );
       await loadProfile();
       if (signal === "favorite") {
         await loadFavorites();

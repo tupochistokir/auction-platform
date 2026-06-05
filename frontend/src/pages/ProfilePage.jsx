@@ -563,6 +563,10 @@ function SellerListingCard({
           <span>Просмотры</span>
           <strong>{auction.views_count || 0}</strong>
         </div>
+        <div className="profile-row">
+          <span>Лайки</span>
+          <strong>{auction.likes_count || 0}</strong>
+        </div>
         <div className="profile-row seller-final-range-row">
           <div>
             <span>Интервал финала</span>

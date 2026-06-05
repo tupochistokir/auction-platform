@@ -694,7 +694,7 @@ function ProductPage({
               >
                 <span>
                   {selectedAuction.viewer_signals?.favorited
-                    ? "В избранном"
+                    ? "в избранном"
                     : "Добавить в избранное"}
                 </span>
                 <strong>{selectedAuction.favorites_count || 0}</strong>

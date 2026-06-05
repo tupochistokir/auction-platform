@@ -1049,8 +1049,9 @@ def like_auction(
             raise HTTPException(status_code=400, detail="Лот сейчас не опубликован в каталоге")
 
         interaction = _get_interaction(db, auction.id, current_user.id)
-        interaction.liked = not bool(interaction.liked)
-        interaction.liked_at = datetime.utcnow() if interaction.liked else None
+        if not bool(interaction.liked) or not interaction.liked_at:
+            interaction.liked_at = datetime.utcnow()
+        interaction.liked = True
         interaction.updated_at = datetime.utcnow()
         db.flush()
 
@@ -1076,8 +1077,9 @@ def favorite_auction(
             raise HTTPException(status_code=400, detail="Лот сейчас не опубликован в каталоге")
 
         interaction = _get_interaction(db, auction.id, current_user.id)
-        interaction.favorited = not bool(interaction.favorited)
-        interaction.favorited_at = datetime.utcnow() if interaction.favorited else None
+        if not bool(interaction.favorited) or not interaction.favorited_at:
+            interaction.favorited_at = datetime.utcnow()
+        interaction.favorited = True
         interaction.updated_at = datetime.utcnow()
         db.flush()
 
