@@ -3,7 +3,7 @@ import os
 import sys
 from pathlib import Path
 
-from sqlalchemy import create_engine, func, text
+from sqlalchemy import String, create_engine, func, inspect, text
 from sqlalchemy.orm import sessionmaker
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -11,10 +11,10 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.db.database import Base
-from app.db.models import Auction, AuctionInteraction, Bid, Offer, User
+from app.db.models import Auction, AuctionInteraction, Bid, MediaAsset, Offer, User
 
 
-TABLE_MODELS = [User, Auction, Bid, Offer, AuctionInteraction]
+TABLE_MODELS = [User, Auction, Bid, Offer, AuctionInteraction, MediaAsset]
 
 
 def normalize_postgres_url(url: str) -> str:
@@ -38,9 +38,11 @@ def serialize_row(row) -> dict:
 
 
 def table_counts(session) -> dict:
+    existing_tables = set(inspect(session.bind).get_table_names())
     return {
         model.__tablename__: session.query(model).count()
         for model in TABLE_MODELS
+        if model.__tablename__ in existing_tables
     }
 
 
@@ -53,6 +55,10 @@ def reset_postgres_sequences(session, engine) -> None:
         return
 
     for model in TABLE_MODELS:
+        if "id" not in model.__table__.columns:
+            continue
+        if isinstance(model.__table__.columns["id"].type, String):
+            continue
         max_id = session.query(func.max(model.id)).scalar() or 0
         if not max_id:
             continue
@@ -72,7 +78,11 @@ def reset_postgres_sequences(session, engine) -> None:
 
 def copy_rows(source_session, target_session) -> dict:
     copied = {}
+    existing_tables = set(inspect(source_session.bind).get_table_names())
     for model in TABLE_MODELS:
+        if model.__tablename__ not in existing_tables:
+            copied[model.__tablename__] = 0
+            continue
         rows = source_session.query(model).order_by(model.id.asc()).all()
         for row in rows:
             target_session.merge(model(**serialize_row(row)))

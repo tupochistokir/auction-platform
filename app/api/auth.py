@@ -4,18 +4,16 @@ import hmac
 import json
 import os
 import secrets
-import shutil
 import time
-import uuid
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, File, Header, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import or_
 
-from app.config import get_public_base_url, get_upload_dir
 from app.db.database import SessionLocal
 from app.db.models import User
+from app.services.media_storage import store_upload_file_as_media
 
 
 router = APIRouter(prefix="/auth", tags=["Авторизация"])
@@ -464,24 +462,10 @@ def upload_avatar(
     file: UploadFile = File(...),
     authorization: Optional[str] = Header(default=None),
 ):
-    if not (file.content_type or "").startswith("image/"):
-        raise HTTPException(status_code=400, detail="Можно загружать только изображения")
-
     db = SessionLocal()
     try:
         user = _get_current_user(db, authorization)
-        upload_dir = os.path.join(get_upload_dir(), "avatars")
-        os.makedirs(upload_dir, exist_ok=True)
-
-        _, extension = os.path.splitext(file.filename or "")
-        safe_extension = extension.lower() if extension else ".jpg"
-        filename = f"{uuid.uuid4().hex}{safe_extension}"
-        file_path = os.path.join(upload_dir, filename)
-
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-
-        user.avatar_url = f"{get_public_base_url()}/uploads/avatars/{filename}"
+        user.avatar_url = store_upload_file_as_media(db, file)
         db.commit()
         db.refresh(user)
 
@@ -490,6 +474,12 @@ def upload_avatar(
             "avatar_url": user.avatar_url,
             "user": _user_to_dict(user),
         }
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Не удалось загрузить аватар: {exc}") from exc
     finally:
         db.close()
 

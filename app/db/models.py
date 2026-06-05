@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Float, JSON, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Float, JSON, LargeBinary, UniqueConstraint
 from app.db.database import Base
 
 
@@ -97,4 +97,14 @@ class User(Base):
     password_recovery_answer_salt = Column(String, nullable=True)
     password_hash = Column(String)
     password_salt = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class MediaAsset(Base):
+    __tablename__ = "media_assets"
+
+    id = Column(String, primary_key=True, index=True)
+    filename = Column(String, nullable=True)
+    content_type = Column(String)
+    data = Column(LargeBinary)
     created_at = Column(DateTime, default=datetime.utcnow)

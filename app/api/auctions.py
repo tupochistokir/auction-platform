@@ -1,6 +1,3 @@
-import os
-import shutil
-import uuid
 from datetime import datetime, timedelta, timezone
 from statistics import pstdev
 from typing import Any, Dict, List, Optional
@@ -11,12 +8,12 @@ from pydantic import BaseModel
 from app.db.database import SessionLocal
 from app.db.models import Auction, AuctionInteraction, Bid, Offer, User
 from app.api.auth import _get_current_user
-from app.config import get_public_base_url, get_upload_dir
 from app.pricing.math_core import calculate_full_pricing, calculate_recommended_bid
 from app.pricing.recommendation_engine import (
     generate_user_advice,
 )
 from app.schemas.lot import LotCreate
+from app.services.media_storage import store_upload_file_as_media
 
 router = APIRouter(prefix="/auctions", tags=["Аукционы"])
 
@@ -1690,12 +1687,16 @@ def get_auction_offers(
 
 @router.post("/upload-image")
 def upload_image(file: UploadFile = File(...)):
-    upload_dir = get_upload_dir()
-    os.makedirs(upload_dir, exist_ok=True)
-    filename = f"{uuid.uuid4()}.jpg"
-    file_path = os.path.join(upload_dir, filename)
-
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    return {"image_url": f"{get_public_base_url()}/uploads/{filename}"}
+    db = SessionLocal()
+    try:
+        image_url = store_upload_file_as_media(db, file)
+        db.commit()
+        return {"image_url": image_url}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Не удалось загрузить фото: {exc}") from exc
+    finally:
+        db.close()
