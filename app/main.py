@@ -8,7 +8,7 @@ from app.api.lots import router as lots_router
 from app.api.pricing import router as pricing_router
 from app.api.auctions import router as auctions_router
 from app.api.auth import router as auth_router
-from app.config import get_frontend_origins, get_upload_dir
+from app.config import get_frontend_origins, get_upload_diagnostics, get_upload_dir
 
 from app.db.database import engine, Base, ensure_sqlite_schema, get_database_diagnostics
 from app.db import models
@@ -19,7 +19,7 @@ upload_dir = get_upload_dir()
 os.makedirs(upload_dir, exist_ok=True)
 
 app = FastAPI(title="Auction Platform API")
-APP_RELEASE = "2026-06-05-persistence-diagnostics"
+APP_RELEASE = "2026-06-05-upload-fallback-diagnostics"
 
 app.add_middleware(
     CORSMiddleware,
@@ -61,6 +61,7 @@ def health_check():
         "status": "ok",
         "release": APP_RELEASE,
         "database": diagnostics,
+        "uploads": get_upload_diagnostics(),
         "counts": counts,
     }
 
