@@ -5,6 +5,27 @@ const formatMoney = (value) => {
   return Number.isFinite(number) ? `${Math.round(number).toLocaleString("ru-RU")} ₽` : "—";
 };
 
+const getMoneyNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+};
+
+const getFinalPriceForecast = (analysis = {}, auction = {}) => {
+  const conservative = getMoneyNumber(analysis.conservative_final_price);
+  const expected = getMoneyNumber(analysis.expected_final_price ?? auction.expected_final_price);
+  const optimistic = getMoneyNumber(analysis.optimistic_final_price);
+
+  return {
+    expected: expected !== null ? formatMoney(expected) : "—",
+    interval:
+      conservative !== null && optimistic !== null
+        ? `${formatMoney(conservative)} — ${formatMoney(optimistic)}`
+        : expected !== null
+          ? formatMoney(expected)
+          : "—",
+  };
+};
+
 const toDateTimeLocalValue = (value) => {
   if (!value) return "";
   const date = new Date(value);
@@ -273,6 +294,7 @@ function SellerListingCard({
   const hasLiveMetrics = auction.status === "active" || auction.status === "finished";
   const canEditStartPrice = (isActive && !hasBids) || isHidden;
   const canEditAuctionRules = isActive || isHidden;
+  const finalPriceForecast = getFinalPriceForecast(analysis, auction);
   const basePriceSource =
     analysis.base_price_source === "ml_model" ? "ML-модель" : "резервная формула";
 
@@ -541,9 +563,15 @@ function SellerListingCard({
           <span>Просмотры</span>
           <strong>{auction.views_count || 0}</strong>
         </div>
-        <div className="profile-row">
-          <span>Прогноз финала</span>
-          <strong>{formatMoney(auction.expected_final_price)}</strong>
+        <div
+          className="profile-row seller-final-range-row"
+          title="Интервал использует P_cons, E[P_final] и P_opt из расчёта лота"
+        >
+          <div>
+            <span>Интервал финала</span>
+            <small>Ожидаемо {finalPriceForecast.expected}</small>
+          </div>
+          <strong>{finalPriceForecast.interval}</strong>
         </div>
         <div className="profile-row seller-metric-row" title="D показывает фактические торговые действия: ставки, офферы, скорость ставок и рост цены. Просмотры и лайки сюда не входят">
           <span>Спрос D</span>
