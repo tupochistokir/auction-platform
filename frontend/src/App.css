@@ -8233,7 +8233,9 @@ button:not(:disabled):not(.product-image-open):active {
   font-size: clamp(20px, 1.7vw, 28px) !important;
   justify-self: end !important;
   line-height: 1.08 !important;
+  overflow: visible !important;
   text-align: right !important;
+  text-overflow: clip !important;
   white-space: nowrap !important;
 }
 
@@ -8254,8 +8256,11 @@ button:not(:disabled):not(.product-image-open):active {
   }
 
   .seller-private-grid .seller-final-range-row strong {
+    font-size: clamp(18px, 5.4vw, 22px) !important;
     justify-self: center !important;
+    line-height: 1.14 !important;
     text-align: center !important;
+    white-space: normal !important;
   }
 
   .seller-final-range-value small {
