@@ -563,15 +563,14 @@ function SellerListingCard({
           <span>Просмотры</span>
           <strong>{auction.views_count || 0}</strong>
         </div>
-        <div
-          className="profile-row seller-final-range-row"
-          title="Интервал использует P_cons, E[P_final] и P_opt из расчёта лота"
-        >
+        <div className="profile-row seller-final-range-row">
           <div>
             <span>Интервал финала</span>
-            <small>Ожидаемо {finalPriceForecast.expected}</small>
           </div>
-          <strong>{finalPriceForecast.interval}</strong>
+          <div className="seller-final-range-value">
+            <strong>{finalPriceForecast.interval}</strong>
+            <small>ожидаемая цена {finalPriceForecast.expected}</small>
+          </div>
         </div>
         <div className="profile-row seller-metric-row" title="D показывает фактические торговые действия: ставки, офферы, скорость ставок и рост цены. Просмотры и лайки сюда не входят">
           <span>Спрос D</span>

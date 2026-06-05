@@ -8201,14 +8201,17 @@ button:not(:disabled):not(.product-image-open):active {
 .seller-private-grid .profile-row.seller-final-range-row {
   align-items: center !important;
   display: grid !important;
-  gap: 10px !important;
+  gap: 14px !important;
   grid-column: span 2 !important;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) !important;
+  grid-template-columns: minmax(120px, 0.85fr) minmax(180px, 1.15fr) !important;
+  min-height: 116px !important;
   text-align: left !important;
 }
 
 .seller-final-range-row span {
-  margin-bottom: 4px !important;
+  display: block !important;
+  line-height: 1.12 !important;
+  margin-bottom: 7px !important;
 }
 
 .seller-final-range-row small {
@@ -8219,22 +8222,43 @@ button:not(:disabled):not(.product-image-open):active {
   line-height: 1.25 !important;
 }
 
+.seller-final-range-value {
+  display: grid !important;
+  gap: 7px !important;
+  justify-items: end !important;
+  min-width: 0 !important;
+}
+
 .seller-private-grid .seller-final-range-row strong {
-  font-size: clamp(17px, 1.35vw, 22px) !important;
+  font-size: clamp(20px, 1.7vw, 28px) !important;
   justify-self: end !important;
-  line-height: 1.16 !important;
+  line-height: 1.08 !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+}
+
+.seller-final-range-value small {
   text-align: right !important;
 }
 
 @media (max-width: 680px) {
   .seller-private-grid .profile-row.seller-final-range-row {
     grid-column: span 1 !important;
+    gap: 12px !important;
     grid-template-columns: 1fr !important;
     text-align: center !important;
   }
 
+  .seller-final-range-value {
+    justify-items: center !important;
+  }
+
   .seller-private-grid .seller-final-range-row strong {
     justify-self: center !important;
+    text-align: center !important;
+  }
+
+  .seller-final-range-value small {
     text-align: center !important;
   }
 }
