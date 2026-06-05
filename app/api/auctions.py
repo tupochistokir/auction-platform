@@ -1049,15 +1049,18 @@ def like_auction(
             raise HTTPException(status_code=400, detail="Лот сейчас не опубликован в каталоге")
 
         interaction = _get_interaction(db, auction.id, current_user.id)
-        if not bool(interaction.liked) or not interaction.liked_at:
-            interaction.liked_at = datetime.utcnow()
-        interaction.liked = True
+        should_like = not bool(interaction.liked)
+        interaction.liked = should_like
+        interaction.liked_at = datetime.utcnow() if should_like else None
         interaction.updated_at = datetime.utcnow()
         db.flush()
 
         auction_payload = _serialize_auction(db, auction, viewer_user_id=current_user.id)
         db.commit()
-        return {"message": "Лайк учтён", "auction": auction_payload}
+        return {
+            "message": "Лайк учтён" if should_like else "Лайк снят",
+            "auction": auction_payload,
+        }
     finally:
         db.close()
 
@@ -1077,15 +1080,18 @@ def favorite_auction(
             raise HTTPException(status_code=400, detail="Лот сейчас не опубликован в каталоге")
 
         interaction = _get_interaction(db, auction.id, current_user.id)
-        if not bool(interaction.favorited) or not interaction.favorited_at:
-            interaction.favorited_at = datetime.utcnow()
-        interaction.favorited = True
+        should_favorite = not bool(interaction.favorited)
+        interaction.favorited = should_favorite
+        interaction.favorited_at = datetime.utcnow() if should_favorite else None
         interaction.updated_at = datetime.utcnow()
         db.flush()
 
         auction_payload = _serialize_auction(db, auction, viewer_user_id=current_user.id)
         db.commit()
-        return {"message": "Избранное обновлено", "auction": auction_payload}
+        return {
+            "message": "Избранное обновлено" if should_favorite else "Убрано из избранного",
+            "auction": auction_payload,
+        }
     finally:
         db.close()
 

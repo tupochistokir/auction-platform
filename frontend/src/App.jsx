@@ -766,10 +766,7 @@ function App() {
     if (!selectedAuction) return;
     if (!requireAuth("Войдите в аккаунт, чтобы сохранять реакции на лоты.")) return;
 
-    const signalKey = signal === "favorite" ? "favorited" : "liked";
-    const preservedSignalKey = signal === "favorite" ? "liked" : "favorited";
     const previousViewerSignals = selectedAuction.viewer_signals || {};
-    if (previousViewerSignals[signalKey]) return;
 
     try {
       const response = await fetch(`${API_URL}/auctions/${selectedAuction.id}/${signal}`, {
@@ -787,9 +784,8 @@ function App() {
       const updatedAuction = {
         ...data.auction,
         viewer_signals: {
+          ...previousViewerSignals,
           ...(data.auction?.viewer_signals || {}),
-          [signalKey]: true,
-          [preservedSignalKey]: Boolean(previousViewerSignals[preservedSignalKey]),
         },
       };
 
