@@ -1,16 +1,22 @@
 def get_condition_multiplier(condition: str) -> float:
     condition = (condition or "good").lower()
 
-    if condition == "excellent":
-        return 1.15
-    elif condition == "good":
-        return 1.0
-    elif condition == "bad":
-        return 0.75
-    elif condition == "unknown":
-        return 0.95
+    condition_multipliers = {
+        "new": 1.0,
+        "excellent": 1.0,
+        "новое": 1.0,
+        "good": 0.75,
+        "хорошее": 0.75,
+        "normal": 0.55,
+        "нормальное": 0.55,
+        "bad": 0.3,
+        "defective": 0.3,
+        "с дефектами": 0.3,
+        "unknown": 0.55,
+        "": 0.55,
+    }
 
-    return 1.0
+    return condition_multipliers.get(condition, 0.55)
 
 
 def get_age_multiplier(estimated_age: int, brand: str) -> float:

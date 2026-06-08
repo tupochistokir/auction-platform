@@ -13,15 +13,21 @@ def analyze_lot(questionnaire: dict):
 
     vintage_score = min(age / 20, 1.0) if age > 0 else 0.2
 
-    condition_score = 0.5
-    if condition == "excellent":
-        condition_score = 0.9
-    elif condition == "good":
-        condition_score = 0.7
-    elif condition == "bad":
-        condition_score = 0.3
-    elif condition == "unknown":
-        condition_score = 0.5
+    condition_scores = {
+        "new": 1.0,
+        "excellent": 1.0,
+        "новое": 1.0,
+        "good": 0.75,
+        "хорошее": 0.75,
+        "normal": 0.55,
+        "нормальное": 0.55,
+        "bad": 0.3,
+        "defective": 0.3,
+        "с дефектами": 0.3,
+        "unknown": 0.55,
+        "": 0.55,
+    }
+    condition_score = condition_scores.get(condition, 0.55)
 
     value_score = (
         0.4 * brand_score +

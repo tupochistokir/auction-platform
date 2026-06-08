@@ -129,12 +129,18 @@ def calculate_resale_ceiling(questionnaire: Dict[str, Any]) -> Dict[str, Any]:
         "no_name": 0.62,
     }
     condition_multipliers = {
+        "new": 1.0,
         "excellent": 1.0,
-        "good": 0.84,
-        "normal": 0.64,
-        "bad": 0.4,
-        "unknown": 0.7,
-        "": 0.7,
+        "новое": 1.0,
+        "good": 0.75,
+        "хорошее": 0.75,
+        "normal": 0.55,
+        "нормальное": 0.55,
+        "bad": 0.3,
+        "defective": 0.3,
+        "с дефектами": 0.3,
+        "unknown": 0.55,
+        "": 0.55,
     }
 
     if age <= 1:

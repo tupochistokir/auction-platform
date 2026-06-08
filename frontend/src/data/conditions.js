@@ -1,6 +1,6 @@
 export const conditionOptions = [
-  { value: "excellent", label: "Отличное" },
+  { value: "excellent", label: "Новое" },
   { value: "good", label: "Хорошее" },
-  { value: "bad", label: "Плохое" },
-  { value: "unknown", label: "Неизвестно" },
+  { value: "normal", label: "Нормальное" },
+  { value: "bad", label: "С дефектами" },
 ];

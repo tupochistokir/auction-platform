@@ -79,7 +79,7 @@ const ATTRIBUTE_VALUES = {
     scarf: "Шарф",
   },
   condition: {
-    excellent: "Отличное",
+    excellent: "Новое",
     good: "Хорошее",
     normal: "Нормальное",
     bad: "С дефектами",

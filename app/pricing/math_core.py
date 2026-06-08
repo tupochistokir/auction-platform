@@ -167,14 +167,20 @@ def calculate_brand_confidence(brand: Optional[str]) -> float:
 def calculate_condition_score(condition: Optional[str]) -> float:
     """Convert product condition into quality coefficient Q_c."""
     condition_scores = {
+        "new": 1.0,
         "excellent": 1.0,
+        "новое": 1.0,
         "good": 0.75,
+        "хорошее": 0.75,
         "normal": 0.55,
+        "нормальное": 0.55,
         "bad": 0.3,
-        "unknown": 0.5,
-        "": 0.5,
+        "defective": 0.3,
+        "с дефектами": 0.3,
+        "unknown": 0.55,
+        "": 0.55,
     }
-    return condition_scores.get(_text(condition, "unknown").lower(), 0.5)
+    return condition_scores.get(_text(condition, "normal").lower(), 0.55)
 
 
 def calculate_vintage_score(age: int, brand_score: float) -> float:
@@ -953,7 +959,7 @@ def calculate_full_pricing(
 
     formula_explanation = {
         "brand_score": "Q_b = f(brand_prestige), Q_b in [0;1]. Если бренд не указан, Q_b = 0, потому что нет подтвержденного брендового признака.",
-        "condition_score": "Q_c = {excellent:1.0, good:0.75, normal:0.55, bad:0.3, unknown:0.5}",
+        "condition_score": "Q_c = {new/excellent:1.0, good:0.75, normal:0.55, bad:0.3}",
         "vintage_score": "Q_v = f(age, Q_b): формальный vintage-сигнал начинается примерно с 20 лет, но 5-19 лет дают слабый archival/pre-vintage сигнал для сильных брендов. Возраст без бренда и редкости не создает премию.",
         "rarity_score": "Q_r = 0.38Q_b + 0.25Age + 0.17Tag + 0.20Keywords - penalty. Отсутствие бирки не добавляет ценности.",
         "confirmed_value_score": "Q = 0.30Q_b + 0.25Q_c + 0.25Q_r + 0.20Q_v",
