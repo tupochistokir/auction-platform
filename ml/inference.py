@@ -1,4 +1,5 @@
 import json
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, Dict
 
@@ -27,6 +28,8 @@ except ImportError:
 
 _BASE_PRICE_MODEL = None
 _FINAL_PRICE_MODEL = None
+_BASE_PRICE_MODEL_LOAD_ERROR = None
+_FINAL_PRICE_MODEL_LOAD_ERROR = None
 
 # The current external bid dataset contains auction mechanics for watches and
 # electronics. It is useful as empirical bid dynamics, but direct ML inference
@@ -121,43 +124,84 @@ def _normalized_final_features(features: Dict[str, Any]) -> Dict[str, Any]:
 
 def load_base_price_model():
     """Load and cache the trained base price model, returning None when it is unavailable."""
-    global _BASE_PRICE_MODEL
+    global _BASE_PRICE_MODEL, _BASE_PRICE_MODEL_LOAD_ERROR
 
     if _BASE_PRICE_MODEL is not None:
         return _BASE_PRICE_MODEL
 
     model_path = Path(BASE_PRICE_MODEL_PATH)
     if not model_path.exists():
+        _BASE_PRICE_MODEL_LOAD_ERROR = f"file_not_found: {model_path}"
         return None
 
     try:
         _BASE_PRICE_MODEL = joblib.load(model_path)
+        _BASE_PRICE_MODEL_LOAD_ERROR = None
         return _BASE_PRICE_MODEL
-    except Exception:
+    except Exception as exc:
         _BASE_PRICE_MODEL = None
+        _BASE_PRICE_MODEL_LOAD_ERROR = f"{exc.__class__.__name__}: {exc}"
         return None
 
 
 def load_final_price_model():
     """Load and cache the trained final auction price model, returning None if unavailable."""
-    global _FINAL_PRICE_MODEL
+    global _FINAL_PRICE_MODEL, _FINAL_PRICE_MODEL_LOAD_ERROR
 
     if _FINAL_PRICE_MODEL is not None:
         return _FINAL_PRICE_MODEL
 
     if not _final_model_is_enabled():
+        _FINAL_PRICE_MODEL_LOAD_ERROR = "disabled_by_metrics_report"
         return None
 
     model_path = Path(FINAL_PRICE_MODEL_PATH)
     if not model_path.exists():
+        _FINAL_PRICE_MODEL_LOAD_ERROR = f"file_not_found: {model_path}"
         return None
 
     try:
         _FINAL_PRICE_MODEL = joblib.load(model_path)
+        _FINAL_PRICE_MODEL_LOAD_ERROR = None
         return _FINAL_PRICE_MODEL
-    except Exception:
+    except Exception as exc:
         _FINAL_PRICE_MODEL = None
+        _FINAL_PRICE_MODEL_LOAD_ERROR = f"{exc.__class__.__name__}: {exc}"
         return None
+
+
+def _dependency_versions() -> Dict[str, str]:
+    versions = {}
+    for package_name in ("scikit-learn", "numpy", "pandas", "joblib"):
+        try:
+            versions[package_name] = version(package_name)
+        except PackageNotFoundError:
+            versions[package_name] = "not_installed"
+    return versions
+
+
+def get_model_diagnostics() -> Dict[str, Any]:
+    """Return lightweight runtime diagnostics for deployed model artifacts."""
+    base_path = Path(BASE_PRICE_MODEL_PATH)
+    final_path = Path(FINAL_PRICE_MODEL_PATH)
+    base_model = load_base_price_model()
+    final_model = load_final_price_model()
+
+    return {
+        "dependencies": _dependency_versions(),
+        "base_price_model": {
+            "path": str(base_path),
+            "exists": base_path.exists(),
+            "loaded": base_model is not None,
+            "load_error": _BASE_PRICE_MODEL_LOAD_ERROR,
+        },
+        "final_price_model": {
+            "path": str(final_path),
+            "exists": final_path.exists(),
+            "loaded": final_model is not None,
+            "load_error": _FINAL_PRICE_MODEL_LOAD_ERROR,
+        },
+    }
 
 
 def fallback_base_price(questionnaire: Dict[str, Any]) -> float:

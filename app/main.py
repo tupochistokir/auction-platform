@@ -13,13 +13,19 @@ from app.config import get_frontend_origins, get_upload_diagnostics, get_upload_
 from app.db.database import SessionLocal, engine, Base, ensure_sqlite_schema, get_database_diagnostics
 from app.db import models
 
+try:
+    from ml.inference import get_model_diagnostics
+except Exception as exc:
+    def get_model_diagnostics():
+        return {"error": f"{exc.__class__.__name__}: {exc}"}
+
 Base.metadata.create_all(bind=engine)
 ensure_sqlite_schema()
 upload_dir = get_upload_dir()
 os.makedirs(upload_dir, exist_ok=True)
 
 app = FastAPI(title="Auction Platform API")
-APP_RELEASE = "2026-06-05-database-media-storage"
+APP_RELEASE = "2026-06-09-model-runtime-pins"
 
 app.add_middleware(
     CORSMiddleware,
@@ -78,6 +84,7 @@ def health_check():
         "release": APP_RELEASE,
         "database": diagnostics,
         "uploads": _media_storage_diagnostics(diagnostics),
+        "models": get_model_diagnostics(),
         "counts": counts,
     }
 
