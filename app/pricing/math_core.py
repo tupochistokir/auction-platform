@@ -8,6 +8,12 @@ pricing should call calculate_full_pricing() instead of duplicating formulas.
 from math import sqrt
 from typing import Any, Dict, Optional
 
+from app.pricing.brand_taxonomy import (
+    get_brand_confidence as get_taxonomy_brand_confidence,
+    get_brand_score as get_taxonomy_brand_score,
+    normalize_brand_name,
+)
+
 try:
     from ml.inference import predict_base_price, predict_final_price
 except Exception:
@@ -77,8 +83,7 @@ def _item_type(questionnaire: Dict[str, Any]) -> str:
 
 
 def _normalize_brand(brand: Optional[str]) -> str:
-    normalized = _text(brand).lower().replace("`", "'").replace("-", " ").replace("_", " ")
-    return " ".join(normalized.split())
+    return normalize_brand_name(brand)
 
 
 def normalize_score(value: float, min_value: float, max_value: float) -> float:
@@ -96,102 +101,12 @@ def calculate_brand_score(brand: Optional[str]) -> float:
     so Q_b equals 0. A declared no-name item receives a very small non-zero
     score because the brand status is known, but it does not create premium.
     """
-    normalized = _normalize_brand(brand)
-
-    brand_scores = {
-        "": 0.0,
-        "unknown": 0.0,
-        "not specified": 0.0,
-        "не указан": 0.0,
-        "no name": 0.05,
-        "no-name": 0.05,
-        "noname": 0.05,
-        "generic": 0.08,
-        "stone island": 0.95,
-        "saint laurent": 0.94,
-        "yves saint laurent": 0.94,
-        "ysl": 0.94,
-        "gucci": 0.94,
-        "prada": 0.93,
-        "chanel": 0.93,
-        "dior": 0.92,
-        "louis vuitton": 0.92,
-        "burberry": 0.9,
-        "celine": 0.9,
-        "fendi": 0.9,
-        "balenciaga": 0.89,
-        "the north face": 0.88,
-        "carhartt": 0.88,
-        "givenchy": 0.88,
-        "versace": 0.87,
-        "alpha industries": 0.86,
-        "miu miu": 0.86,
-        "maison margiela": 0.86,
-        "levi's": 0.84,
-        "levis": 0.84,
-        "jean paul gaultier": 0.84,
-        "issey miyake": 0.84,
-        "nike": 0.83,
-        "adidas": 0.82,
-        "ralph lauren": 0.8,
-        "tommy hilfiger": 0.76,
-        "diesel": 0.74,
-        "lacoste": 0.7,
-        "armani": 0.7,
-        "calvin klein": 0.68,
-        "uniqlo": 0.42,
-        "zara": 0.36,
-        "h&m": 0.3,
-    }
-
-    return brand_scores.get(normalized, 0.35)
+    return get_taxonomy_brand_score(brand)
 
 
 def calculate_brand_confidence(brand: Optional[str]) -> float:
     """Estimate confidence of the brand signal source."""
-    normalized = _normalize_brand(brand)
-    if normalized in {"", "unknown", "not specified", "не указан"}:
-        return 0.0
-    if normalized in {"no name", "no-name", "noname", "generic"}:
-        return 0.8
-    known_brands = {
-        "stone island",
-        "saint laurent",
-        "yves saint laurent",
-        "ysl",
-        "gucci",
-        "prada",
-        "chanel",
-        "dior",
-        "louis vuitton",
-        "burberry",
-        "celine",
-        "fendi",
-        "balenciaga",
-        "the north face",
-        "carhartt",
-        "givenchy",
-        "versace",
-        "alpha industries",
-        "miu miu",
-        "maison margiela",
-        "levi's",
-        "levis",
-        "jean paul gaultier",
-        "issey miyake",
-        "nike",
-        "adidas",
-        "ralph lauren",
-        "tommy hilfiger",
-        "diesel",
-        "lacoste",
-        "armani",
-        "calvin klein",
-        "uniqlo",
-        "zara",
-        "h&m",
-    }
-    return 0.95 if normalized in known_brands else 0.45
+    return get_taxonomy_brand_confidence(brand)
 
 
 def calculate_condition_score(condition: Optional[str]) -> float:

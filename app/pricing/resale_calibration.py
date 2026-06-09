@@ -1,5 +1,7 @@
 from typing import Any, Dict
 
+from app.pricing.brand_taxonomy import get_brand_segment as get_taxonomy_brand_segment
+
 
 def _text(value: Any, default: str = "") -> str:
     if value is None:
@@ -24,10 +26,6 @@ def _bool(value: Any) -> bool:
     return bool(value)
 
 
-def _brand_key(brand: Any) -> str:
-    return " ".join(_text(brand).lower().replace("`", "'").replace("-", " ").replace("_", " ").split())
-
-
 def _item_type(questionnaire: Dict[str, Any]) -> str:
     explicit = _text(
         questionnaire.get("subcategory") or questionnaire.get("type") or questionnaire.get("category"),
@@ -48,44 +46,7 @@ def _item_type(questionnaire: Dict[str, Any]) -> str:
 
 def get_brand_segment(brand: Any) -> str:
     """Classify brand into a resale segment used by the calibration layer."""
-    brand_key = _brand_key(brand)
-    luxury = {
-        "gucci",
-        "prada",
-        "burberry",
-        "stone island",
-        "saint laurent",
-        "yves saint laurent",
-        "ysl",
-        "chanel",
-        "dior",
-        "louis vuitton",
-        "celine",
-        "fendi",
-        "balenciaga",
-        "givenchy",
-        "versace",
-        "miu miu",
-        "maison margiela",
-        "jean paul gaultier",
-        "issey miyake",
-    }
-    vintage_premium = {"carhartt", "levi's", "levis", "ralph lauren", "diesel"}
-    sports_mass = {"adidas", "nike", "puma", "reebok", "new balance", "vans", "converse"}
-    mass = {"zara", "h&m", "uniqlo", "bershka", "pull&bear", "mango"}
-    no_name = {"", "unknown", "not specified", "не указан", "no name", "no-name", "no_name", "noname", "generic"}
-
-    if brand_key in luxury:
-        return "luxury"
-    if brand_key in vintage_premium:
-        return "vintage_premium"
-    if brand_key in sports_mass:
-        return "sports_mass"
-    if brand_key in mass:
-        return "mass"
-    if brand_key in no_name:
-        return "no_name"
-    return "other_brand"
+    return get_taxonomy_brand_segment(brand)
 
 
 def calculate_resale_ceiling(questionnaire: Dict[str, Any]) -> Dict[str, Any]:
@@ -142,8 +103,10 @@ def calculate_resale_ceiling(questionnaire: Dict[str, Any]) -> Dict[str, Any]:
     }
     brand_multipliers = {
         "luxury": 2.4,
+        "premium": 1.75,
         "vintage_premium": 1.35,
         "sports_mass": 1.05,
+        "mid_market": 0.98,
         "mass": 0.82,
         "other_brand": 0.9,
         "no_name": 0.62,
@@ -171,8 +134,12 @@ def calculate_resale_ceiling(questionnaire: Dict[str, Any]) -> Dict[str, Any]:
         age_multiplier = 0.82
     elif age <= 9:
         age_multiplier = 0.68
-    elif segment in {"luxury", "vintage_premium"}:
+    elif segment in {"luxury", "premium", "vintage_premium"}:
         age_multiplier = 1.05
+    elif segment == "sports_mass":
+        age_multiplier = 0.82
+    elif segment == "mid_market":
+        age_multiplier = 0.68
     else:
         age_multiplier = 0.52
 
@@ -184,8 +151,10 @@ def calculate_resale_ceiling(questionnaire: Dict[str, Any]) -> Dict[str, Any]:
     ceiling = anchor * brand_multiplier * condition_multiplier * age_multiplier * tag_multiplier
     floor_ratios = {
         "luxury": 0.48,
+        "premium": 0.42,
         "vintage_premium": 0.36,
         "sports_mass": 0.30,
+        "mid_market": 0.30,
         "mass": 0.24,
         "other_brand": 0.28,
         "no_name": 0.16,
