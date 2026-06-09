@@ -25,7 +25,7 @@ def _bool(value: Any) -> bool:
 
 
 def _brand_key(brand: Any) -> str:
-    return " ".join(_text(brand).lower().replace("`", "'").replace("_", " ").split())
+    return " ".join(_text(brand).lower().replace("`", "'").replace("-", " ").replace("_", " ").split())
 
 
 def _item_type(questionnaire: Dict[str, Any]) -> str:
@@ -49,7 +49,27 @@ def _item_type(questionnaire: Dict[str, Any]) -> str:
 def get_brand_segment(brand: Any) -> str:
     """Classify brand into a resale segment used by the calibration layer."""
     brand_key = _brand_key(brand)
-    luxury = {"gucci", "prada", "burberry", "stone island"}
+    luxury = {
+        "gucci",
+        "prada",
+        "burberry",
+        "stone island",
+        "saint laurent",
+        "yves saint laurent",
+        "ysl",
+        "chanel",
+        "dior",
+        "louis vuitton",
+        "celine",
+        "fendi",
+        "balenciaga",
+        "givenchy",
+        "versace",
+        "miu miu",
+        "maison margiela",
+        "jean paul gaultier",
+        "issey miyake",
+    }
     vintage_premium = {"carhartt", "levi's", "levis", "ralph lauren", "diesel"}
     sports_mass = {"adidas", "nike", "puma", "reebok", "new balance", "vans", "converse"}
     mass = {"zara", "h&m", "uniqlo", "bershka", "pull&bear", "mango"}
