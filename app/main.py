@@ -25,7 +25,7 @@ upload_dir = get_upload_dir()
 os.makedirs(upload_dir, exist_ok=True)
 
 app = FastAPI(title="Auction Platform API")
-APP_RELEASE = "2026-06-09-model-runtime-pins"
+APP_RELEASE = "2026-06-09-kiki-demo-rescue"
 
 app.add_middleware(
     CORSMiddleware,
