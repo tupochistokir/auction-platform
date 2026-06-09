@@ -12,17 +12,13 @@ from pydantic import BaseModel
 from sqlalchemy import or_
 
 from app.db.database import SessionLocal
-from app.db.models import Auction, User
+from app.db.models import User
 from app.services.media_storage import store_upload_file_as_media
 
 
 router = APIRouter(prefix="/auth", tags=["Авторизация"])
 
 AUTH_SECRET = os.getenv("AUCTION_AUTH_SECRET", "auction-platform-demo-secret")
-DEMO_KIKI_RESCUE_KEY = os.getenv(
-    "DEMO_KIKI_RESCUE_KEY",
-    "kiki-rescue-2026-06-09-8f6717bb",
-)
 
 
 class RegisterRequest(BaseModel):
@@ -50,12 +46,6 @@ class PasswordResetRequest(BaseModel):
     recovery_question: str
     recovery_answer: str
     new_password: str
-
-
-class DemoKikiRescueRequest(BaseModel):
-    rescue_key: str
-    new_password: str
-    recovery_answer: Optional[str] = None
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -120,42 +110,6 @@ def _has_recovery_credentials(user: User) -> bool:
         and getattr(user, "password_recovery_answer_salt", None)
         and getattr(user, "password_recovery_answer_hash", None)
     )
-
-
-def _demo_kiki_rescue_enabled() -> bool:
-    value = os.getenv("DEMO_KIKI_RESCUE_ENABLED", "1").strip().lower()
-    return value not in {"0", "false", "no", "off"}
-
-
-def _find_demo_kiki_user(db) -> tuple[Optional[User], int]:
-    users = db.query(User).all()
-    users_by_id = {user.id: user for user in users}
-    named_user_ids = {
-        user.id
-        for user in users
-        if _normalize(user.username) == "kiki"
-        or _normalize(user.display_name) == "kiki"
-    }
-
-    lot_counts: Dict[int, int] = {}
-    for auction in db.query(Auction).all():
-        seller_id = getattr(auction, "seller_id", None)
-        if seller_id not in users_by_id:
-            continue
-
-        seller_name = _normalize(getattr(auction, "seller_name", ""))
-        if seller_name == "kiki" or seller_id in named_user_ids:
-            lot_counts[seller_id] = lot_counts.get(seller_id, 0) + 1
-
-    if lot_counts:
-        user_id, lot_count = max(lot_counts.items(), key=lambda item: item[1])
-        return users_by_id[user_id], lot_count
-
-    for user in users:
-        if _normalize(user.username) == "kiki" or _normalize(user.display_name) == "kiki":
-            return user, 0
-
-    return None, 0
 
 
 def _get_user_by_email(db, email: str) -> Optional[User]:
@@ -408,52 +362,6 @@ def reset_password(payload: PasswordResetRequest):
 
         return {
             "message": "Пароль обновлён",
-            "token": create_token(user),
-            "user": _user_to_dict(user),
-        }
-    finally:
-        db.close()
-
-
-@router.post("/demo-rescue/kiki")
-def rescue_demo_kiki(payload: DemoKikiRescueRequest):
-    if not _demo_kiki_rescue_enabled():
-        raise HTTPException(status_code=404, detail="Rescue endpoint is disabled")
-
-    if not hmac.compare_digest(payload.rescue_key or "", DEMO_KIKI_RESCUE_KEY):
-        raise HTTPException(status_code=403, detail="Invalid rescue key")
-
-    if len(payload.new_password or "") < 6:
-        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
-
-    db = SessionLocal()
-    try:
-        user, lot_count = _find_demo_kiki_user(db)
-        if not user:
-            raise HTTPException(status_code=404, detail="Demo kiki account was not found")
-
-        if _normalize(user.username) != "kiki":
-            existing = (
-                db.query(User)
-                .filter(User.username == "kiki", User.id != user.id)
-                .first()
-            )
-            if not existing:
-                user.username = "kiki"
-
-        user.display_name = "kiki"
-        _set_user_password(user, payload.new_password)
-        _set_user_recovery(user, "pet_name", payload.recovery_answer or "kiki")
-
-        db.commit()
-        db.refresh(user)
-
-        return {
-            "message": "Demo kiki account restored",
-            "username": user.username,
-            "email": user.email,
-            "display_name": user.display_name,
-            "seller_lots": lot_count,
             "token": create_token(user),
             "user": _user_to_dict(user),
         }
