@@ -22,8 +22,8 @@ function Header({
           onClick={goToCatalog}
           aria-label="Перейти на главную страницу"
         >
-          <p className="eyebrow">Аукционная second-hand платформа</p>
-          <h1>Vintage Market</h1>
+          <p className="eyebrow">Аукционы second-hand</p>
+          <h1>KLOS</h1>
           <div className="brand-divider" aria-hidden="true">
             <span />
             <i>✦</i>

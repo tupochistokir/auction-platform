@@ -72,7 +72,7 @@ function FavoritesPage({
                   {image ? (
                     <img src={image} alt={auction.title} className="market-card-img" />
                   ) : (
-                    <div className="market-card-placeholder">Vintage Market</div>
+                    <div className="market-card-placeholder">KLOS</div>
                   )}
 
                   <div className="market-badge">

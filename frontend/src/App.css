@@ -8292,3 +8292,265 @@ button:not(:disabled):not(.product-image-open):active {
     text-align: center !important;
   }
 }
+
+/* KLOS storefront polish. */
+.topbar {
+  gap: 14px !important;
+  padding: clamp(18px, 2.2vw, 30px) clamp(18px, 3vw, 42px) !important;
+}
+
+.topbar-main-row {
+  align-items: center !important;
+  gap: clamp(18px, 2.6vw, 38px) !important;
+  grid-template-columns: minmax(240px, 0.78fr) minmax(480px, 1.22fr) !important;
+}
+
+.brand-mark {
+  align-items: center !important;
+  column-gap: 16px !important;
+  display: grid !important;
+  grid-template-columns: 54px minmax(0, 1fr) !important;
+  justify-items: start !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  text-align: left !important;
+}
+
+.brand-mark::before {
+  align-items: center;
+  aspect-ratio: 1;
+  background: #2f473f;
+  border: 1px solid rgba(255, 255, 255, 0.54);
+  border-radius: 8px;
+  box-shadow: 0 16px 30px rgba(47, 71, 63, 0.2);
+  color: #fff7eb;
+  content: "K";
+  display: grid;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 34px;
+  font-weight: 800;
+  grid-row: 1 / span 3;
+  justify-items: center;
+  line-height: 1;
+  width: 54px;
+}
+
+.brand-mark .eyebrow {
+  grid-column: 2 !important;
+  letter-spacing: 0.08em !important;
+  line-height: 1.2 !important;
+  margin: 0 0 6px !important;
+  max-width: 100% !important;
+}
+
+.brand-mark h1 {
+  color: #20342d !important;
+  font-size: clamp(44px, 5vw, 82px) !important;
+  grid-column: 2 !important;
+  letter-spacing: 0 !important;
+  line-height: 0.86 !important;
+  margin: 0 !important;
+  max-width: 100% !important;
+  overflow-wrap: anywhere;
+  white-space: normal !important;
+}
+
+.brand-divider {
+  grid-column: 2 !important;
+  margin-top: 10px !important;
+  max-width: 190px !important;
+  width: 100% !important;
+}
+
+.primary-nav {
+  gap: 10px !important;
+  justify-content: flex-end !important;
+}
+
+.primary-nav .nav-btn,
+.account-bar .nav-btn,
+.account-bar .logout-btn {
+  min-width: 0 !important;
+  padding-inline: 16px !important;
+}
+
+.account-bar {
+  gap: 10px !important;
+  justify-content: flex-end !important;
+  padding-top: 10px !important;
+}
+
+.market-layout {
+  align-items: start !important;
+  gap: clamp(18px, 2vw, 28px) !important;
+  grid-template-columns: minmax(220px, 270px) minmax(0, 1fr) !important;
+  margin-inline: auto !important;
+  max-width: 1380px !important;
+}
+
+.market-grid {
+  gap: 20px !important;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)) !important;
+}
+
+.market-card {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+
+.market-card-image {
+  aspect-ratio: 4 / 5 !important;
+  min-height: 250px !important;
+}
+
+.market-card-placeholder {
+  font-family: "Playfair Display", Georgia, serif !important;
+  font-size: clamp(30px, 4vw, 48px) !important;
+  letter-spacing: 0 !important;
+}
+
+@media (max-width: 980px) {
+  .topbar-main-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .brand-mark {
+    grid-template-columns: 48px minmax(0, 1fr) !important;
+  }
+
+  .brand-mark::before {
+    font-size: 30px;
+    width: 48px;
+  }
+
+  .primary-nav,
+  .account-bar {
+    justify-content: stretch !important;
+  }
+
+  .market-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .category-sidebar,
+  .market-content,
+  .market-filters,
+  .empty-box {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .market-filters {
+    display: grid !important;
+    gap: 10px !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  }
+
+  .market-filters input {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .market-filters input:first-child {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+@media (max-width: 620px) {
+  html,
+  body,
+  #root,
+  .page,
+  .container {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
+  .container {
+    padding-inline: 10px !important;
+    width: 100% !important;
+  }
+
+  .topbar,
+  .marketplace-hero,
+  .market-layout {
+    box-sizing: border-box !important;
+    max-width: calc(100vw - 20px) !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: 100% !important;
+  }
+
+  .topbar {
+    padding: 18px !important;
+  }
+
+  .brand-mark {
+    column-gap: 12px !important;
+    grid-template-columns: 42px minmax(0, 1fr) !important;
+    overflow: hidden !important;
+    width: 100% !important;
+  }
+
+  .brand-mark::before {
+    font-size: 26px;
+    width: 42px;
+  }
+
+  .brand-mark h1 {
+    font-size: clamp(40px, 15vw, 58px) !important;
+  }
+
+  .brand-mark .eyebrow,
+  .marketplace-hero h2,
+  .marketplace-hero p {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow-wrap: anywhere !important;
+    text-wrap: balance;
+    white-space: normal !important;
+  }
+
+  .brand-mark .eyebrow {
+    font-size: 11px !important;
+    letter-spacing: 0.06em !important;
+  }
+
+  .marketplace-hero > div {
+    max-width: 320px !important;
+    width: 100% !important;
+  }
+
+  .marketplace-hero h2 {
+    font-size: clamp(28px, 8.8vw, 36px) !important;
+    line-height: 1.08 !important;
+  }
+
+  .marketplace-hero p {
+    font-size: 15px !important;
+    line-height: 1.45 !important;
+  }
+
+  .brand-divider {
+    max-width: 150px !important;
+  }
+
+  .primary-nav .nav-btn,
+  .account-bar .nav-btn,
+  .account-bar .logout-btn {
+    width: 100% !important;
+  }
+
+  .market-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .market-filters {
+    grid-template-columns: 1fr !important;
+  }
+
+  .market-card-image {
+    min-height: 220px !important;
+  }
+}
