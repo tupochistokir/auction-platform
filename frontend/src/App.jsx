@@ -102,6 +102,24 @@ const getApiErrorMessage = (data, fallback) => {
   return fallback;
 };
 
+const isBlankQuestionnaireValue = (value) => {
+  if (Array.isArray(value)) return value.length === 0;
+  if (value === null || value === undefined) return true;
+
+  const normalized = String(value).trim().toLowerCase();
+  return ["", "unknown", "other", "not specified", "no name", "generic"].includes(normalized);
+};
+
+const getAiFieldValue = (aiAnalysis, field, minConfidence = 0.6) => {
+  const item = aiAnalysis?.[field];
+  if (!item || Number(item.confidence || 0) < minConfidence) return undefined;
+
+  const value = item.value;
+  if (Array.isArray(value)) return value.length ? value : undefined;
+  if (value === null || value === undefined || value === "") return undefined;
+  return value;
+};
+
 const emptyAuthForm = {
   username: "",
   email: "",
@@ -190,6 +208,9 @@ function App() {
   const [sellResult, setSellResult] = useState(null);
   const [sellLoading, setSellLoading] = useState(false);
   const [sellError, setSellError] = useState("");
+  const [aiAnalysisLoading, setAiAnalysisLoading] = useState(false);
+  const [aiAnalysisError, setAiAnalysisError] = useState("");
+  const [aiAnalysisResult, setAiAnalysisResult] = useState(null);
 
   const currentUserName = authUser?.display_name || authUser?.username || "";
 
@@ -1165,6 +1186,8 @@ function App() {
     if (!requireAuth("Войдите или зарегистрируйтесь, чтобы загрузить фото товара.")) return;
 
     try {
+      setAiAnalysisResult(null);
+      setAiAnalysisError("");
       const uploadedImages = [];
 
       for (const file of files) {
@@ -1192,11 +1215,95 @@ function App() {
         ...prev,
         image_url: uploadedImages[0]?.url || "",
         image_urls: uploadedImages.map((img) => img.url),
+        questionnaire: {
+          ...prev.questionnaire,
+          ai_analysis: {},
+        },
       }));
 
       setSellImages(uploadedImages);
     } catch (err) {
       alert("Ошибка загрузки фото: " + err.message);
+    }
+  };
+
+  const handleAnalyzeSellImages = async () => {
+    if (!sellForm.image_urls?.length) {
+      setAiAnalysisError("Сначала загрузите хотя бы одно фото товара.");
+      return;
+    }
+
+    setAiAnalysisLoading(true);
+    setAiAnalysisError("");
+
+    try {
+      const response = await fetch(`${API_URL}/ai/analyze-lot-photo`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: sellForm.title,
+          description: sellForm.description,
+          image_urls: sellForm.image_urls,
+          questionnaire: sellForm.questionnaire,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(getApiErrorMessage(data, "Ошибка AI-анализа фото"));
+      }
+
+      const ai = data.ai_analysis || {};
+      setAiAnalysisResult({
+        ...data,
+        seller_questionnaire_snapshot: sellForm.questionnaire,
+      });
+
+      setSellForm((prev) => {
+        const questionnaire = {
+          ...prev.questionnaire,
+          ai_analysis: ai,
+        };
+
+        for (const field of ["brand", "category", "subcategory", "material", "style", "defects"]) {
+          const value = getAiFieldValue(ai, field, 0.62);
+          if (value !== undefined && isBlankQuestionnaireValue(questionnaire[field])) {
+            questionnaire[field] = value;
+          }
+        }
+
+        const condition = getAiFieldValue(ai, "condition", 0.85);
+        if (condition !== undefined) {
+          questionnaire.condition = condition;
+        }
+
+        const estimatedAge = getAiFieldValue(ai, "estimated_age", 0.68);
+        if (estimatedAge !== undefined && isBlankQuestionnaireValue(questionnaire.estimated_age)) {
+          questionnaire.estimated_age = String(estimatedAge);
+        }
+
+        const hasTag = getAiFieldValue(ai, "has_tag", 0.68);
+        if (hasTag !== undefined && questionnaire.has_tag !== true) {
+          questionnaire.has_tag = Boolean(hasTag);
+        }
+
+        const colors = getAiFieldValue(ai, "colors", 0.62);
+        if (Array.isArray(colors) && colors.length && isBlankQuestionnaireValue(questionnaire.colors)) {
+          questionnaire.colors = colors;
+        }
+
+        return {
+          ...prev,
+          questionnaire,
+        };
+      });
+    } catch (err) {
+      setAiAnalysisError(err.message || "Не удалось проанализировать фото");
+    } finally {
+      setAiAnalysisLoading(false);
     }
   };
 
@@ -1468,6 +1575,10 @@ function App() {
               sellError={sellError}
               sellResult={sellResult}
               handleApplyPricingRecommendation={handleApplyPricingRecommendation}
+              handleAnalyzeSellImages={handleAnalyzeSellImages}
+              aiAnalysisLoading={aiAnalysisLoading}
+              aiAnalysisError={aiAnalysisError}
+              aiAnalysisResult={aiAnalysisResult}
             />
           ) : (
             renderAuthGate("sell")

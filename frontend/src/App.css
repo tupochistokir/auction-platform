@@ -672,6 +672,96 @@ input:focus {
   color: #6b5448;
   word-break: break-word;
 }
+
+.ai-photo-btn {
+  margin: 8px 0 12px;
+}
+
+.compact-error {
+  margin: 0 0 14px;
+}
+
+.photo-criteria-box {
+  background: rgba(255, 250, 246, 0.9);
+  border: 1px dashed rgba(139, 111, 90, 0.35);
+  border-radius: 14px;
+  color: #5d4638;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 12px;
+}
+
+.photo-criteria-box strong {
+  flex-basis: 100%;
+  color: #2b1a12;
+  font-size: 14px;
+}
+
+.photo-criteria-box span {
+  background: #f1e5da;
+  border-radius: 999px;
+  font-size: 13px;
+  padding: 6px 10px;
+}
+
+.ai-analysis-box {
+  border: 1px solid rgba(139, 111, 90, 0.16);
+  border-radius: 16px;
+  margin: 0 0 18px;
+  padding: 16px;
+}
+
+.ai-comparison-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  margin-top: 12px;
+}
+
+.ai-comparison-card {
+  background: rgba(255, 250, 246, 0.92);
+  border: 1px solid rgba(139, 111, 90, 0.18);
+  border-radius: 12px;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.ai-comparison-head {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.ai-comparison-head span {
+  color: #6d5141;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ai-comparison-head strong {
+  color: #2e4439;
+  font-size: 16px;
+}
+
+.ai-comparison-card p {
+  color: #4f3d33;
+  font-size: 13px;
+  line-height: 1.35;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ai-comparison-card small {
+  color: #8a4d31;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .smart-input-wrapper {
   position: relative;
 }

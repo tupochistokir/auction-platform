@@ -31,3 +31,9 @@ services:
         value: /var/data/uploads
       - key: AUCTION_AUTH_SECRET
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_VISION_MODEL
+        value: gemini-2.5-flash
+      - key: GEMINI_TIMEOUT_SECONDS
+        value: "25"

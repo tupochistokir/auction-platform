@@ -8,6 +8,7 @@ from app.api.lots import router as lots_router
 from app.api.pricing import router as pricing_router
 from app.api.auctions import router as auctions_router
 from app.api.auth import router as auth_router
+from app.api.ai import router as ai_router
 from app.config import get_frontend_origins, get_upload_diagnostics, get_upload_dir
 
 from app.db.database import SessionLocal, engine, Base, ensure_sqlite_schema, get_database_diagnostics
@@ -25,7 +26,7 @@ upload_dir = get_upload_dir()
 os.makedirs(upload_dir, exist_ok=True)
 
 app = FastAPI(title="Auction Platform API")
-APP_RELEASE = "2026-06-09-brand-taxonomy"
+APP_RELEASE = "2026-06-16-vision-ai-pricing"
 
 app.add_middleware(
     CORSMiddleware,
@@ -110,3 +111,4 @@ app.include_router(lots_router)
 app.include_router(pricing_router)
 app.include_router(auctions_router)
 app.include_router(auth_router)
+app.include_router(ai_router)

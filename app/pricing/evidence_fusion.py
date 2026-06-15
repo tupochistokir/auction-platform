@@ -1,9 +1,9 @@
 """Fusion of seller questionnaire and optional external vision evidence.
 
-This module does not train or imitate a computer-vision model. It only consumes
-structured output from an external image-recognition service when such output is
-available. The pricing model remains explainable: final item attributes are
-chosen by deterministic confidence rules, then passed to math_core.
+The pricing core must stay explainable, so image AI is used only as an
+additional source of observable item attributes. It does not set the price
+directly. This module chooses final attributes by deterministic confidence
+rules and then passes them to math_core.
 """
 
 from __future__ import annotations
@@ -15,7 +15,29 @@ from typing import Any, Dict, Iterable, Optional
 LOW_CONFIDENCE = 0.60
 HIGH_CONFIDENCE = 0.85
 
-OBJECTIVE_FIELDS = {"brand", "condition", "estimated_age", "has_tag", "color", "colors"}
+OBJECTIVE_FIELDS = {
+    "brand",
+    "category",
+    "subcategory",
+    "condition",
+    "estimated_age",
+    "has_tag",
+    "color",
+    "colors",
+    "material",
+    "style",
+    "defects",
+}
+
+FIELD_MISSING_VALUES = {
+    "brand": {"", "unknown", "not specified", "no name", "generic"},
+    "category": {"", "unknown", "not specified", "other"},
+    "subcategory": {"", "unknown", "not specified", "other"},
+    "condition": {"", "unknown", "not specified"},
+    "material": {"", "unknown", "not specified"},
+    "style": {"", "unknown", "not specified"},
+    "defects": {"", "unknown", "not specified", "none", "no defects"},
+}
 
 
 def _text(value: Any) -> str:
@@ -41,12 +63,13 @@ def _confidence(value: Any) -> float:
     return max(0.0, min(1.0, _number(value, 0.0)))
 
 
-def _is_missing(value: Any) -> bool:
+def _is_missing(value: Any, field: Optional[str] = None) -> bool:
     if value is None:
         return True
     if isinstance(value, str):
-        return _normalized_text(value) in {"", "unknown", "not specified", "не указан"}
-    if isinstance(value, Iterable) and not isinstance(value, (dict, bytes)):
+        missing_values = FIELD_MISSING_VALUES.get(field or "", {"", "unknown", "not specified"})
+        return _normalized_text(value) in missing_values
+    if isinstance(value, Iterable) and not isinstance(value, (dict, bytes, str)):
         return len(list(value)) == 0
     return False
 
@@ -54,7 +77,11 @@ def _is_missing(value: Any) -> bool:
 def _extract_ai_field(ai_analysis: Dict[str, Any], field: str) -> Dict[str, Any]:
     raw = ai_analysis.get(field)
     if not isinstance(raw, dict):
-        return {"value": None, "confidence": 0.0}
+        return {
+            "value": raw,
+            "confidence": LOW_CONFIDENCE if raw is not None else 0.0,
+            "raw": raw,
+        }
 
     return {
         "value": raw.get("value"),
@@ -83,17 +110,14 @@ def choose_attribute_value(
     """Choose final attribute value from seller input and optional AI evidence.
 
     Confidence zones are intentionally simple:
-    - below 0.60: external vision evidence is weak, so it cannot override seller
+    - below 0.60: external vision evidence is weak and cannot override seller
       input;
-    - 0.60-0.85: evidence is useful for missing fields or agreement checks;
-    - 0.85 and above: evidence is treated as strong for objective visual fields.
-
-    This keeps the diploma explanation compact: AI is not a separate pricing
-    model, it is only one more source of observable item features.
+    - 0.60-0.85: evidence can fill missing fields or confirm seller input;
+    - 0.85 and above: evidence can override objective visual fields.
     """
     ai_confidence = _confidence(ai_confidence)
-    seller_missing = _is_missing(seller_value)
-    ai_missing = _is_missing(ai_value)
+    seller_missing = _is_missing(seller_value, field)
+    ai_missing = _is_missing(ai_value, field)
     matches = not seller_missing and not ai_missing and _values_match(seller_value, ai_value)
 
     if ai_missing or ai_confidence < LOW_CONFIDENCE:
@@ -147,10 +171,13 @@ def fuse_questionnaire_evidence(questionnaire: Dict[str, Any]) -> Dict[str, Any]
     Expected optional AI format:
     {
       "brand": {"value": "adidas", "confidence": 0.90},
+      "category": {"value": "tops", "confidence": 0.88},
+      "subcategory": {"value": "hoodie", "confidence": 0.86},
       "condition": {"value": "good", "confidence": 0.75},
       "estimated_age": {"value": 12, "confidence": 0.68},
       "has_tag": {"value": true, "confidence": 0.82},
-      "colors": {"value": ["black"], "confidence": 0.91}
+      "colors": {"value": ["black"], "confidence": 0.91},
+      "material": {"value": "cotton", "confidence": 0.70}
     }
     """
     seller_input = deepcopy(questionnaire or {})
@@ -188,6 +215,14 @@ def fuse_questionnaire_evidence(questionnaire: Dict[str, Any]) -> Dict[str, Any]
 
     if "color" in effective and "colors" not in effective:
         effective["colors"] = [effective["color"]]
+
+    if (
+        "colors" in effective
+        and isinstance(effective["colors"], list)
+        and effective["colors"]
+        and "color" not in effective
+    ):
+        effective["color"] = effective["colors"][0]
 
     return {
         "pricing_questionnaire": effective,

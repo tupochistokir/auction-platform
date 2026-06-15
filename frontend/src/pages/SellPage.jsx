@@ -17,6 +17,56 @@ const formatMoney = (value) => {
 const formatScore = (value) =>
   typeof value === "number" ? value.toFixed(4) : "—";
 
+const formatAiValue = (value) => {
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "boolean") return value ? "да" : "нет";
+  return value ?? "—";
+};
+
+const normalizeCompareValue = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item ?? "").trim().toLowerCase())
+      .filter(Boolean)
+      .join(",");
+  }
+
+  return String(value ?? "").trim().toLowerCase();
+};
+
+const isEmptyCompareValue = (value) => {
+  const normalized = normalizeCompareValue(value);
+  return ["", "unknown", "other", "not specified", "no name", "generic"].includes(normalized);
+};
+
+const valuesLookEqual = (left, right) => {
+  if (Array.isArray(left) || Array.isArray(right)) {
+    const leftValues = Array.isArray(left) ? left : [left];
+    const rightValues = Array.isArray(right) ? right : [right];
+    const leftSet = new Set(leftValues.map(normalizeCompareValue).filter(Boolean));
+
+    return rightValues
+      .map(normalizeCompareValue)
+      .filter(Boolean)
+      .some((item) => leftSet.has(item));
+  }
+
+  return normalizeCompareValue(left) === normalizeCompareValue(right);
+};
+
+const aiComparisonFields = [
+  ["brand", "Бренд"],
+  ["category", "Категория"],
+  ["subcategory", "Подкатегория"],
+  ["condition", "Состояние"],
+  ["material", "Материал"],
+  ["estimated_age", "Возраст"],
+  ["has_tag", "Бирка"],
+  ["colors", "Цвета"],
+  ["style", "Стиль"],
+  ["defects", "Дефекты"],
+];
+
 function SellPage({
   sellForm,
   handleCreateAuction,
@@ -32,6 +82,10 @@ function SellPage({
   availableSubcategories,
   handleToggleColor,
   handleApplyPricingRecommendation,
+  handleAnalyzeSellImages,
+  aiAnalysisLoading,
+  aiAnalysisError,
+  aiAnalysisResult,
 }) {
   const [qOpen, setQOpen] = useState(false);
   const [formulasOpen, setFormulasOpen] = useState(false);
@@ -62,6 +116,41 @@ function SellPage({
     ["Step", formulaExplanation.bid_step],
     ["E[P_final]", formulaExplanation.expected_final_price],
   ].filter(([, formula]) => Boolean(formula));
+
+  const aiFields = aiAnalysisResult?.ai_analysis || {};
+  const questionnaireSnapshot =
+    aiAnalysisResult?.seller_questionnaire_snapshot || sellForm.questionnaire || {};
+  const aiComparisonRows = aiComparisonFields
+    .map(([field, label]) => {
+      const item = aiFields[field] || {};
+      const aiValue = item.value;
+      const sellerValue = questionnaireSnapshot[field];
+      const confidence = Number(item.confidence || 0);
+
+      if (
+        (aiValue === null ||
+          aiValue === undefined ||
+          aiValue === "" ||
+          (Array.isArray(aiValue) && !aiValue.length)) &&
+        isEmptyCompareValue(sellerValue)
+      ) {
+        return null;
+      }
+
+      let status = "AI не использован";
+      if (confidence >= 0.85 && !valuesLookEqual(sellerValue, aiValue) && !isEmptyCompareValue(aiValue)) {
+        status = "AI уверен, есть расхождение";
+      } else if (confidence >= 0.6 && isEmptyCompareValue(sellerValue) && !isEmptyCompareValue(aiValue)) {
+        status = "AI заполняет пустое поле";
+      } else if (confidence >= 0.6 && valuesLookEqual(sellerValue, aiValue)) {
+        status = "анкета и фото совпали";
+      } else if (!isEmptyCompareValue(sellerValue)) {
+        status = "оставлено значение анкеты";
+      }
+
+      return { field, label, sellerValue, aiValue, confidence, status };
+    })
+    .filter(Boolean);
 
   return (
     <>
@@ -155,6 +244,52 @@ function SellPage({
                     <span>{image.name}</span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            <button
+              type="button"
+              className="secondary-btn full ai-photo-btn"
+              onClick={handleAnalyzeSellImages}
+              disabled={aiAnalysisLoading || !sellImages.length}
+            >
+              {aiAnalysisLoading ? "AI анализирует фото..." : "AI-анализ фото для цены"}
+            </button>
+
+            <div className="photo-criteria-box">
+              <strong>Критерии хорошей оценки фото</strong>
+              <span>общий вид товара</span>
+              <span>крупно бирка или логотип</span>
+              <span>материал и фактура</span>
+              <span>дефекты отдельным кадром</span>
+            </div>
+
+            {aiAnalysisError && <div className="error-box compact-error">{aiAnalysisError}</div>}
+
+            {aiAnalysisResult && (
+              <div className="result-box ai-analysis-box">
+                <h4>AI-сверка фото и анкеты</h4>
+                <p className="field-hint">
+                  Источник: {aiAnalysisResult.source === "gemini" ? "Gemini Vision" : "локальный fallback"}
+                </p>
+                {aiComparisonRows.length > 0 && (
+                  <div className="ai-comparison-grid">
+                    {aiComparisonRows.map((row) => (
+                      <div className="ai-comparison-card" key={row.field}>
+                        <div className="ai-comparison-head">
+                          <span>{row.label}</span>
+                          <strong>{Math.round(row.confidence * 100)}%</strong>
+                        </div>
+                        <p>Анкета: {formatAiValue(row.sellerValue)}</p>
+                        <p>Фото: {formatAiValue(row.aiValue)}</p>
+                        <small>{row.status}</small>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {aiAnalysisResult.provider_error && (
+                  <p className="field-hint">Gemini не вызван: {aiAnalysisResult.provider_error}</p>
+                )}
               </div>
             )}
 
