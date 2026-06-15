@@ -8,6 +8,11 @@ import { styleOptions } from "../data/styles";
 import { conditionOptions } from "../data/conditions";
 import SmartBrandInput from "../components/SmartBrandInput";
 import MultiColorSelect from "../components/MultiColorSelect";
+import {
+  buildAiVerificationRows,
+  buildVerificationSummary,
+  formatVerificationValue,
+} from "../utils/aiVerification";
 
 const formatMoney = (value) => {
   const number = Number(value);
@@ -16,56 +21,6 @@ const formatMoney = (value) => {
 
 const formatScore = (value) =>
   typeof value === "number" ? value.toFixed(4) : "—";
-
-const formatAiValue = (value) => {
-  if (Array.isArray(value)) return value.join(", ");
-  if (typeof value === "boolean") return value ? "да" : "нет";
-  return value ?? "—";
-};
-
-const normalizeCompareValue = (value) => {
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => String(item ?? "").trim().toLowerCase())
-      .filter(Boolean)
-      .join(",");
-  }
-
-  return String(value ?? "").trim().toLowerCase();
-};
-
-const isEmptyCompareValue = (value) => {
-  const normalized = normalizeCompareValue(value);
-  return ["", "unknown", "other", "not specified", "no name", "generic"].includes(normalized);
-};
-
-const valuesLookEqual = (left, right) => {
-  if (Array.isArray(left) || Array.isArray(right)) {
-    const leftValues = Array.isArray(left) ? left : [left];
-    const rightValues = Array.isArray(right) ? right : [right];
-    const leftSet = new Set(leftValues.map(normalizeCompareValue).filter(Boolean));
-
-    return rightValues
-      .map(normalizeCompareValue)
-      .filter(Boolean)
-      .some((item) => leftSet.has(item));
-  }
-
-  return normalizeCompareValue(left) === normalizeCompareValue(right);
-};
-
-const aiComparisonFields = [
-  ["brand", "Бренд"],
-  ["category", "Категория"],
-  ["subcategory", "Подкатегория"],
-  ["condition", "Состояние"],
-  ["material", "Материал"],
-  ["estimated_age", "Возраст"],
-  ["has_tag", "Бирка"],
-  ["colors", "Цвета"],
-  ["style", "Стиль"],
-  ["defects", "Дефекты"],
-];
 
 function SellPage({
   sellForm,
@@ -120,37 +75,8 @@ function SellPage({
   const aiFields = aiAnalysisResult?.ai_analysis || {};
   const questionnaireSnapshot =
     aiAnalysisResult?.seller_questionnaire_snapshot || sellForm.questionnaire || {};
-  const aiComparisonRows = aiComparisonFields
-    .map(([field, label]) => {
-      const item = aiFields[field] || {};
-      const aiValue = item.value;
-      const sellerValue = questionnaireSnapshot[field];
-      const confidence = Number(item.confidence || 0);
-
-      if (
-        (aiValue === null ||
-          aiValue === undefined ||
-          aiValue === "" ||
-          (Array.isArray(aiValue) && !aiValue.length)) &&
-        isEmptyCompareValue(sellerValue)
-      ) {
-        return null;
-      }
-
-      let status = "AI не использован";
-      if (confidence >= 0.85 && !valuesLookEqual(sellerValue, aiValue) && !isEmptyCompareValue(aiValue)) {
-        status = "AI уверен, есть расхождение";
-      } else if (confidence >= 0.6 && isEmptyCompareValue(sellerValue) && !isEmptyCompareValue(aiValue)) {
-        status = "AI заполняет пустое поле";
-      } else if (confidence >= 0.6 && valuesLookEqual(sellerValue, aiValue)) {
-        status = "анкета и фото совпали";
-      } else if (!isEmptyCompareValue(sellerValue)) {
-        status = "оставлено значение анкеты";
-      }
-
-      return { field, label, sellerValue, aiValue, confidence, status };
-    })
-    .filter(Boolean);
+  const aiComparisonRows = buildAiVerificationRows(aiFields, questionnaireSnapshot);
+  const aiVerificationSummary = buildVerificationSummary(aiComparisonRows);
 
   return (
     <>
@@ -272,21 +198,47 @@ function SellPage({
                 <p className="field-hint">
                   Источник: {aiAnalysisResult.source === "gemini" ? "Gemini Vision" : "локальный fallback"}
                 </p>
+                <div className={`ai-verification-summary ${aiVerificationSummary.level}`}>
+                  <div>
+                    <strong>{aiVerificationSummary.title}</strong>
+                    <p>{aiVerificationSummary.description}</p>
+                  </div>
+                  <div className="ai-summary-counts">
+                    <span>{aiVerificationSummary.verified} сверено</span>
+                    <span>{aiVerificationSummary.warnings} сомнения</span>
+                    <span>{aiVerificationSummary.conflicts} конфликт</span>
+                  </div>
+                </div>
                 {aiComparisonRows.length > 0 && (
                   <div className="ai-comparison-grid">
                     {aiComparisonRows.map((row) => (
-                      <div className="ai-comparison-card" key={row.field}>
+                      <div
+                        className={`ai-comparison-card ${row.status.tone}`}
+                        key={row.field}
+                      >
                         <div className="ai-comparison-head">
+                          <span className={`ai-status-marker ${row.status.tone}`}>
+                            {row.status.marker}
+                          </span>
                           <span>{row.label}</span>
                           <strong>{Math.round(row.confidence * 100)}%</strong>
                         </div>
-                        <p>Анкета: {formatAiValue(row.sellerValue)}</p>
-                        <p>Фото: {formatAiValue(row.aiValue)}</p>
-                        <small>{row.status}</small>
+                        <p>Анкета: {formatVerificationValue(row.field, row.sellerValue)}</p>
+                        <p>Фото: {formatVerificationValue(row.field, row.aiValue)}</p>
+                        <small>{row.status.title}: {row.status.explanation}</small>
+                        {row.status.needsProof && row.proofHint && (
+                          <p className="ai-proof-hint">
+                            Доп. фото: {row.proofHint}.
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
+                <p className="field-hint">
+                  После публикации лот получит паспорт проверки. Совпавшие поля будут отмечены как сверенные,
+                  а спорные признаки останутся с подсказкой, какое фото нужно добавить для подтверждения.
+                </p>
                 {aiAnalysisResult.provider_error && (
                   <p className="field-hint">Gemini не вызван: {aiAnalysisResult.provider_error}</p>
                 )}

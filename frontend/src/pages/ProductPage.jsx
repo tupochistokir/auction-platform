@@ -1,4 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  buildRowsFromVerificationReport,
+  buildVerificationSummary,
+  formatVerificationValue,
+} from "../utils/aiVerification";
 
 const toFiniteNumber = (value) => {
   if (value === null || value === undefined || value === "") return null;
@@ -619,6 +624,12 @@ function ProductPage({
       ? null
       : Math.max(0, roundedRecommendedBid - roundedMinBid);
   const characteristicRows = buildCharacteristicRows(selectedAuction);
+  const verificationRows = buildRowsFromVerificationReport(
+    selectedAuction.verification_report || {}
+  );
+  const verificationSummary =
+    selectedAuction.verification_report?.summary ||
+    buildVerificationSummary(verificationRows);
   const applyRecommendedBid = () => {
     if (roundedRecommendedBid === null) return;
 
@@ -723,6 +734,48 @@ function ProductPage({
               <div className="empty-box compact">Продавец не заполнил характеристики</div>
             )}
           </section>
+
+          {verificationRows.length > 0 && (
+            <section className={`product-verification-card ${verificationSummary.level}`}>
+              <div className="panel-header">
+                <h3>Паспорт AI-сверки</h3>
+              </div>
+              <div className={`ai-verification-summary ${verificationSummary.level}`}>
+                <div>
+                  <strong>{verificationSummary.title}</strong>
+                  <p>{verificationSummary.description}</p>
+                </div>
+                <div className="ai-summary-counts">
+                  <span>{verificationSummary.verified || 0} сверено</span>
+                  <span>{verificationSummary.warnings || 0} сомнения</span>
+                  <span>{verificationSummary.conflicts || 0} конфликт</span>
+                </div>
+              </div>
+              <div className="verification-list">
+                {verificationRows.map((row) => (
+                  <div className={`verification-row ${row.status.tone}`} key={row.field}>
+                    <span className={`ai-status-marker ${row.status.tone}`}>
+                      {row.status.marker}
+                    </span>
+                    <div>
+                      <strong>{row.label}</strong>
+                      <p>
+                        Анкета: {formatVerificationValue(row.field, row.sellerValue)}
+                      </p>
+                      <p>
+                        По фото: {formatVerificationValue(row.field, row.aiValue)}
+                      </p>
+                      <small>{row.status.title}: {row.status.explanation}</small>
+                      {row.status.needsProof && row.proofHint && (
+                        <small>Нужно уточнить: {row.proofHint}.</small>
+                      )}
+                    </div>
+                    <b>{Math.round(row.confidence * 100)}%</b>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </section>
 
         <section className="product-info-panel">

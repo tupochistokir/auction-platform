@@ -346,6 +346,227 @@ def _public_questionnaire(questionnaire: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+VERIFICATION_FIELD_LABELS = {
+    "brand": "Бренд",
+    "category": "Категория",
+    "subcategory": "Подкатегория",
+    "condition": "Состояние",
+    "material": "Материал",
+    "estimated_age": "Возраст",
+    "has_tag": "Бирка",
+    "colors": "Цвета",
+    "style": "Стиль",
+    "defects": "Дефекты",
+}
+
+VERIFICATION_PROOF_HINTS = {
+    "brand": "логотип, бирка бренда или фирменная фурнитура крупным планом",
+    "category": "вещь целиком на ровной поверхности или на человеке",
+    "subcategory": "силуэт и конструкция вещи полностью",
+    "condition": "зоны износа: воротник, манжеты, подошва, фурнитура",
+    "material": "состав на внутренней бирке или фактура ткани крупным планом",
+    "estimated_age": "бирка, год выпуска, артикул или характерные винтажные детали",
+    "has_tag": "оригинальная бирка, ярлык или место, где бирка отсутствует",
+    "colors": "фото при дневном свете без фильтров",
+    "style": "вещь целиком, чтобы был виден крой и посадка",
+    "defects": "каждый дефект отдельным крупным кадром",
+}
+
+MISSING_VERIFICATION_VALUES = {
+    "",
+    "unknown",
+    "other",
+    "not specified",
+    "no name",
+    "generic",
+    "none",
+    "no defects",
+    "—",
+}
+
+
+def _verification_normalized(value: Any) -> str:
+    if isinstance(value, list):
+        return ",".join(
+            sorted(
+                str(item or "").strip().lower()
+                for item in value
+                if str(item or "").strip()
+            )
+        )
+    if value is None:
+        return ""
+    return str(value).strip().lower()
+
+
+def _verification_missing(value: Any) -> bool:
+    if isinstance(value, list):
+        return len(value) == 0
+    return _verification_normalized(value) in MISSING_VERIFICATION_VALUES
+
+
+def _verification_values_match(left: Any, right: Any) -> bool:
+    if isinstance(left, list) or isinstance(right, list):
+        left_values = left if isinstance(left, list) else [left]
+        right_values = right if isinstance(right, list) else [right]
+        left_set = {
+            _verification_normalized(item)
+            for item in left_values
+            if _verification_normalized(item)
+        }
+        right_set = {
+            _verification_normalized(item)
+            for item in right_values
+            if _verification_normalized(item)
+        }
+        return bool(left_set and right_set and left_set.intersection(right_set))
+    return _verification_normalized(left) == _verification_normalized(right)
+
+
+def _verification_status(seller_value: Any, ai_value: Any, confidence: float) -> Dict[str, Any]:
+    seller_missing = _verification_missing(seller_value)
+    ai_missing = _verification_missing(ai_value)
+    matches = (
+        not seller_missing
+        and not ai_missing
+        and _verification_values_match(seller_value, ai_value)
+    )
+
+    if matches and confidence >= 0.6:
+        return {
+            "type": "verified",
+            "tone": "ok",
+            "marker": "✓",
+            "title": "сверено",
+            "explanation": "анкета и фото совпали",
+            "needsProof": False,
+        }
+    if seller_missing and not ai_missing and confidence >= 0.6:
+        return {
+            "type": "suggestion",
+            "tone": "warn",
+            "marker": "?",
+            "title": "AI предлагает заполнить",
+            "explanation": "в анкете поле пустое, на фото признак виден",
+            "needsProof": False,
+        }
+    if not seller_missing and not ai_missing and not matches and confidence >= 0.85:
+        return {
+            "type": "conflict",
+            "tone": "danger",
+            "marker": "!",
+            "title": "нужно уточнить",
+            "explanation": "AI уверен, что на фото другое значение",
+            "needsProof": True,
+        }
+    if not seller_missing and not ai_missing and not matches and confidence >= 0.6:
+        return {
+            "type": "uncertain",
+            "tone": "warn",
+            "marker": "?",
+            "title": "есть сомнение",
+            "explanation": "AI видит отличие, но уверенность не максимальная",
+            "needsProof": True,
+        }
+    if ai_missing or confidence < 0.45:
+        return {
+            "type": "missing_ai",
+            "tone": "warn",
+            "marker": "?",
+            "title": "нужно доп. фото",
+            "explanation": "по текущим фото признак не подтверждён",
+            "needsProof": True,
+        }
+    return {
+        "type": "low_confidence",
+        "tone": "warn",
+        "marker": "?",
+        "title": "оставлено значение анкеты",
+        "explanation": "AI не набрал достаточную уверенность для вывода",
+        "needsProof": True,
+    }
+
+
+def _public_verification_report(analysis: Dict[str, Any]) -> Dict[str, Any]:
+    evidence_report = (analysis or {}).get("evidence_report") or {}
+    ai_analysis = evidence_report.get("ai_analysis") or {}
+    seller_input = evidence_report.get("seller_input") or {}
+    if not isinstance(ai_analysis, dict) or not ai_analysis:
+        return {
+            "available": False,
+            "summary": {
+                "level": "empty",
+                "title": "AI-сверка не проводилась",
+                "description": "для паспорта проверки нужно загрузить фото и запустить анализ",
+                "verified": 0,
+                "warnings": 0,
+                "conflicts": 0,
+            },
+            "fields": [],
+        }
+
+    fields = []
+    for field, label in VERIFICATION_FIELD_LABELS.items():
+        raw_ai = ai_analysis.get(field)
+        if isinstance(raw_ai, dict):
+            ai_value = raw_ai.get("value")
+            confidence = _safe_float(raw_ai.get("confidence"))
+        else:
+            ai_value = raw_ai
+            confidence = 0.6 if raw_ai is not None else 0.0
+        seller_value = seller_input.get(field)
+        if _verification_missing(seller_value) and _verification_missing(ai_value):
+            continue
+        status = _verification_status(seller_value, ai_value, confidence)
+        fields.append(
+            {
+                "field": field,
+                "label": label,
+                "seller_value": seller_value,
+                "ai_value": ai_value,
+                "confidence": round(max(0.0, min(1.0, confidence)), 4),
+                "status": status,
+                "proof_hint": VERIFICATION_PROOF_HINTS.get(field),
+            }
+        )
+
+    verified = len([row for row in fields if row["status"]["type"] == "verified"])
+    conflicts = len([row for row in fields if row["status"]["type"] == "conflict"])
+    warnings = len(
+        [
+            row
+            for row in fields
+            if row["status"]["type"]
+            in {"suggestion", "uncertain", "missing_ai", "low_confidence"}
+        ]
+    )
+    if conflicts:
+        level = "danger"
+        title = "Есть характеристики, которые нужно уточнить"
+        description = "по части признаков AI увереннее видит другое значение"
+    elif warnings:
+        level = "warn"
+        title = "Основные признаки проверены, но есть сомнения"
+        description = "для спорных полей лучше добавить отдельное подтверждающее фото"
+    else:
+        level = "ok"
+        title = "Характеристики сверены с фото"
+        description = "анкета продавца совпала с AI-анализом по проверенным признакам"
+
+    return {
+        "available": bool(fields),
+        "summary": {
+            "level": level,
+            "title": title,
+            "description": description,
+            "verified": verified,
+            "warnings": warnings,
+            "conflicts": conflicts,
+        },
+        "fields": fields,
+    }
+
+
 def _auction_rule_explanations() -> Dict[str, str]:
     return {
         "minimum_bid": "Минимальная ставка равна текущей цене плюс установленный шаг ставки.",
@@ -557,6 +778,7 @@ def _serialize_auction(
         "bids": [_bid_to_dict(bid) for bid in bids],
         "viewer_signals": _viewer_signals(db, auction.id, viewer_user_id),
         "auction_rules": _auction_rule_explanations(),
+        "verification_report": _public_verification_report(analysis),
     }
 
     if include_private:
