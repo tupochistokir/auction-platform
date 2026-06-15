@@ -8307,58 +8307,45 @@ button:not(:disabled):not(.product-image-open):active {
 
 .brand-mark {
   align-items: center !important;
-  column-gap: 16px !important;
-  display: grid !important;
-  grid-template-columns: 54px minmax(0, 1fr) !important;
-  justify-items: start !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  justify-content: center !important;
+  justify-items: center !important;
   min-width: 0 !important;
   padding: 0 !important;
-  text-align: left !important;
+  text-align: center !important;
+  width: fit-content !important;
 }
 
 .brand-mark::before {
-  align-items: center;
-  aspect-ratio: 1;
-  background: #2f473f;
-  border: 1px solid rgba(255, 255, 255, 0.54);
-  border-radius: 8px;
-  box-shadow: 0 16px 30px rgba(47, 71, 63, 0.2);
-  color: #fff7eb;
-  content: "K";
-  display: grid;
-  font-family: "Playfair Display", Georgia, serif;
-  font-size: 34px;
-  font-weight: 800;
-  grid-row: 1 / span 3;
-  justify-items: center;
-  line-height: 1;
-  width: 54px;
+  content: none !important;
+  display: none !important;
 }
 
 .brand-mark .eyebrow {
-  grid-column: 2 !important;
   letter-spacing: 0.08em !important;
   line-height: 1.2 !important;
-  margin: 0 0 6px !important;
+  margin: 0 !important;
   max-width: 100% !important;
+  text-align: center !important;
 }
 
 .brand-mark h1 {
   color: #20342d !important;
   font-size: clamp(44px, 5vw, 82px) !important;
-  grid-column: 2 !important;
   letter-spacing: 0 !important;
   line-height: 0.86 !important;
   margin: 0 !important;
   max-width: 100% !important;
   overflow-wrap: anywhere;
+  text-align: center !important;
   white-space: normal !important;
 }
 
 .brand-divider {
-  grid-column: 2 !important;
-  margin-top: 10px !important;
-  max-width: 190px !important;
+  margin-top: 2px !important;
+  max-width: 280px !important;
   width: 100% !important;
 }
 
@@ -8415,12 +8402,7 @@ button:not(:disabled):not(.product-image-open):active {
   }
 
   .brand-mark {
-    grid-template-columns: 48px minmax(0, 1fr) !important;
-  }
-
-  .brand-mark::before {
-    font-size: 30px;
-    width: 48px;
+    width: 100% !important;
   }
 
   .primary-nav,
@@ -8487,15 +8469,13 @@ button:not(:disabled):not(.product-image-open):active {
   }
 
   .brand-mark {
-    column-gap: 12px !important;
-    grid-template-columns: 42px minmax(0, 1fr) !important;
     overflow: hidden !important;
     width: 100% !important;
   }
 
   .brand-mark::before {
-    font-size: 26px;
-    width: 42px;
+    content: none !important;
+    display: none !important;
   }
 
   .brand-mark h1 {
