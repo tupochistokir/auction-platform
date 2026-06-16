@@ -17,6 +17,8 @@ from app.services.media_storage import store_upload_file_as_media
 
 router = APIRouter(prefix="/auctions", tags=["Аукционы"])
 
+ADMIN_REVIEW_EMAIL = "marinchev.k@yandex.ru"
+
 
 class BidCreate(BaseModel):
     user: str
@@ -503,6 +505,10 @@ def _public_verification_report(analysis: Dict[str, Any]) -> Dict[str, Any]:
                 "conflicts": 0,
             },
             "fields": [],
+            "review_required": False,
+            "review_status": "not_required",
+            "review_recipients": [],
+            "conflict_fields": [],
         }
 
     fields = []
@@ -515,8 +521,6 @@ def _public_verification_report(analysis: Dict[str, Any]) -> Dict[str, Any]:
             ai_value = raw_ai
             confidence = 0.6 if raw_ai is not None else 0.0
         seller_value = seller_input.get(field)
-        if _verification_missing(seller_value) and _verification_missing(ai_value):
-            continue
         status = _verification_status(seller_value, ai_value, confidence)
         fields.append(
             {
@@ -553,6 +557,20 @@ def _public_verification_report(analysis: Dict[str, Any]) -> Dict[str, Any]:
         title = "Характеристики сверены с фото"
         description = "анкета продавца совпала с AI-анализом по проверенным признакам"
 
+    conflict_fields = [
+        {
+            "field": row["field"],
+            "label": row["label"],
+            "seller_value": row["seller_value"],
+            "ai_value": row["ai_value"],
+            "confidence": row["confidence"],
+            "proof_hint": row["proof_hint"],
+        }
+        for row in fields
+        if row["status"]["type"] == "conflict"
+    ]
+    review_required = bool(conflict_fields)
+
     return {
         "available": bool(fields),
         "summary": {
@@ -564,6 +582,32 @@ def _public_verification_report(analysis: Dict[str, Any]) -> Dict[str, Any]:
             "conflicts": conflicts,
         },
         "fields": fields,
+        "review_required": review_required,
+        "review_status": "queued" if review_required else "not_required",
+        "review_recipients": [ADMIN_REVIEW_EMAIL] if review_required else [],
+        "conflict_fields": conflict_fields,
+    }
+
+
+def _build_moderation_review(verification_report: Dict[str, Any]) -> Dict[str, Any]:
+    if not verification_report.get("review_required"):
+        return {
+            "required": False,
+            "status": "not_required",
+            "recipient_email": None,
+            "reason": None,
+            "fields": [],
+        }
+
+    conflict_fields = verification_report.get("conflict_fields") or []
+    labels = ", ".join(row.get("label", row.get("field", "")) for row in conflict_fields)
+    return {
+        "required": True,
+        "status": "queued",
+        "recipient_email": ADMIN_REVIEW_EMAIL,
+        "created_at": datetime.utcnow().isoformat(),
+        "reason": f"AI нашёл конфликтующие характеристики: {labels}",
+        "fields": conflict_fields,
     }
 
 
@@ -710,6 +754,13 @@ def _refresh_live_analysis(
         "final_price": _safe_float(getattr(auction, "final_price", 0)),
         "updated_at": datetime.utcnow().isoformat(),
     }
+    verification_report = _public_verification_report(analysis)
+    next_review = _build_moderation_review(verification_report)
+    previous_review = previous_analysis.get("moderation_review") or {}
+    if next_review.get("required") and previous_review.get("required"):
+        next_review["created_at"] = previous_review.get("created_at") or next_review.get("created_at")
+        next_review["status"] = previous_review.get("status") or next_review.get("status")
+    analysis["moderation_review"] = next_review
 
     auction.questionnaire = questionnaire
     auction.analysis = analysis
@@ -964,7 +1015,36 @@ def get_profile(user_name: str, authorization: Optional[str] = Header(default=No
             item for item in incoming_offers if item["offer"]["status"] == "pending"
         ]
 
-        return {
+        admin_reviews = None
+        if (current_user.email or "").strip().lower() == ADMIN_REVIEW_EMAIL:
+            review_items = []
+            for auction in auctions:
+                analysis = auction.analysis or {}
+                verification_report = _public_verification_report(analysis)
+                if not verification_report.get("review_required"):
+                    continue
+
+                review = analysis.get("moderation_review") or _build_moderation_review(
+                    verification_report
+                )
+                review_items.append(
+                    {
+                        "auction_id": auction.id,
+                        "title": auction.title,
+                        "brand": auction.brand,
+                        "status": auction.status,
+                        "current_price": auction.current_price,
+                        "review": review,
+                        "verification_report": verification_report,
+                    }
+                )
+            admin_reviews = {
+                "review_email": ADMIN_REVIEW_EMAIL,
+                "total": len(review_items),
+                "items": review_items,
+            }
+
+        response = {
             "user": {
                 "id": current_user.id,
                 "username": current_user.username,
@@ -1019,6 +1099,9 @@ def get_profile(user_name: str, authorization: Optional[str] = Header(default=No
                 "incoming_offers": incoming_offers,
             },
         }
+        if admin_reviews is not None:
+            response["admin_reviews"] = admin_reviews
+        return response
     finally:
         db.commit()
         db.close()
@@ -1064,6 +1147,48 @@ def get_favorites(authorization: Optional[str] = Header(default=None)):
         ]
         db.commit()
         return {"favorites": favorites}
+    finally:
+        db.close()
+
+
+@router.get("/admin/reviews")
+def get_admin_reviews(authorization: Optional[str] = Header(default=None)):
+    db = SessionLocal()
+    try:
+        current_user = _get_current_user(db, authorization)
+        if (current_user.email or "").strip().lower() != ADMIN_REVIEW_EMAIL:
+            raise HTTPException(
+                status_code=403,
+                detail="Очередь ручной проверки доступна только администратору",
+            )
+
+        auctions = db.query(Auction).order_by(Auction.id.desc()).all()
+        items = []
+        for auction in auctions:
+            analysis = auction.analysis or {}
+            report = _public_verification_report(analysis)
+            if not report.get("review_required"):
+                continue
+
+            review = analysis.get("moderation_review") or _build_moderation_review(report)
+            items.append(
+                {
+                    "auction_id": auction.id,
+                    "title": auction.title,
+                    "brand": auction.brand,
+                    "seller_name": _seller_name(auction),
+                    "status": auction.status,
+                    "created_at": _iso(getattr(auction, "created_at", None)),
+                    "review": review,
+                    "verification_report": report,
+                }
+            )
+
+        return {
+            "review_email": ADMIN_REVIEW_EMAIL,
+            "total": len(items),
+            "items": items,
+        }
     finally:
         db.close()
 
@@ -1356,6 +1481,8 @@ def create_auction(
             _safe_float(pricing_result.get("expected_final_price")),
             2,
         )
+        verification_report = _public_verification_report(pricing_result)
+        pricing_result["moderation_review"] = _build_moderation_review(verification_report)
         now = datetime.utcnow()
         end_time = _to_utc_naive(lot.end_time) or now + timedelta(days=7)
 

@@ -136,6 +136,76 @@ function AuctionMiniCard({ auction, onOpen }) {
   );
 }
 
+function AdminReviewPanel({ reviews = [] }) {
+  if (!reviews.length) {
+    return null;
+  }
+
+  const renderValue = (value) => {
+    if (Array.isArray(value)) {
+      return value.length ? value.join(", ") : "—";
+    }
+    return value || "—";
+  };
+
+  return (
+    <section className="profile-panel admin-review-panel">
+      <div className="panel-header admin-review-header">
+        <div>
+          <h3>Очередь AI-проверки</h3>
+          <p>
+            Сюда попадают лоты, где фото и анкета дали сильное расхождение.
+            Такие карточки лучше проверить до активного продвижения.
+          </p>
+        </div>
+        <span>{reviews.length} спорных лотов</span>
+      </div>
+
+      <div className="admin-review-list">
+        {reviews.map((item) => {
+          const conflictFields =
+            item.verification_report?.conflict_fields || item.review?.fields || [];
+          return (
+            <article className="admin-review-card" key={item.auction_id}>
+              <div className="admin-review-card-head">
+                <div>
+                  <span>{item.brand || "бренд не указан"}</span>
+                  <strong>{item.title}</strong>
+                  <p>
+                    {formatMoney(item.current_price)} · {statusLabel(item.status)}
+                  </p>
+                </div>
+                <b>!</b>
+              </div>
+
+              <div className="admin-review-fields">
+                {conflictFields.map((field) => (
+                  <div className="admin-review-field" key={field.field}>
+                    <strong>{field.label}</strong>
+                    <p>
+                      Анкета: {renderValue(field.seller_value)} · AI:{" "}
+                      {renderValue(field.ai_value)}
+                    </p>
+                    <small>
+                      Уверенность: {Math.round((field.confidence || 0) * 100)}%
+                    </small>
+                    {field.proof_hint && <em>{field.proof_hint}</em>}
+                  </div>
+                ))}
+              </div>
+
+              <div className="admin-review-footer">
+                <span>Статус: ручная проверка</span>
+                <span>{item.review?.recipient_email}</span>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function ProfileEditor({ user, profileMessage, handleProfileUpdate }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1050,6 +1120,7 @@ function ProfilePage({
   const sentOffers = profileData?.buyer?.offers || [];
   const sellerListings = profileData?.seller?.listings || [];
   const incomingOffers = profileData?.seller?.incoming_offers || [];
+  const adminReviews = profileData?.admin_reviews?.items || [];
   const pendingIncomingOffers = incomingOffers.filter(
     (item) => item.offer.status === "pending"
   );
@@ -1203,6 +1274,8 @@ function ProfilePage({
                 <StatCard label="Завершённые" value={sellerStats.finished_listings || 0} />
                 <StatCard label="Ждут решения" value={sellerStats.pending_offers || 0} />
               </div>
+
+              <AdminReviewPanel reviews={adminReviews} />
 
               <section className="profile-panel">
                 <div className="panel-header">

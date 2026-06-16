@@ -73,10 +73,14 @@ function SellPage({
   ].filter(([, formula]) => Boolean(formula));
 
   const aiFields = aiAnalysisResult?.ai_analysis || {};
-  const questionnaireSnapshot =
-    aiAnalysisResult?.seller_questionnaire_snapshot || sellForm.questionnaire || {};
-  const aiComparisonRows = buildAiVerificationRows(aiFields, questionnaireSnapshot);
+  const questionnaireSnapshot = sellForm.questionnaire || {};
+  const aiComparisonRows = aiAnalysisResult
+    ? buildAiVerificationRows(aiFields, questionnaireSnapshot)
+    : [];
   const aiVerificationSummary = buildVerificationSummary(aiComparisonRows);
+  const aiCheckedAt = aiAnalysisResult?.checked_at
+    ? new Date(aiAnalysisResult.checked_at).toLocaleString("ru-RU")
+    : null;
 
   return (
     <>
@@ -179,8 +183,16 @@ function SellPage({
               onClick={handleAnalyzeSellImages}
               disabled={aiAnalysisLoading || !sellImages.length}
             >
-              {aiAnalysisLoading ? "AI анализирует фото..." : "AI-анализ фото для цены"}
+              {aiAnalysisLoading
+                ? "AI сверяет фото и анкету..."
+                : aiAnalysisResult
+                  ? "Повторить AI-сверку после правок"
+                  : "Запустить AI-сверку фото и анкеты"}
             </button>
+            <p className="field-hint ai-check-note">
+              Проверку можно запускать несколько раз. После правки анкеты статусы ниже пересчитываются сразу,
+              а после загрузки новых фото лучше повторить AI-сверку.
+            </p>
 
             <div className="photo-criteria-box">
               <strong>Критерии хорошей оценки фото</strong>
@@ -195,9 +207,12 @@ function SellPage({
             {aiAnalysisResult && (
               <div className="result-box ai-analysis-box">
                 <h4>AI-сверка фото и анкеты</h4>
-                <p className="field-hint">
-                  Источник: {aiAnalysisResult.source === "gemini" ? "Gemini Vision" : "локальный fallback"}
-                </p>
+                <div className="ai-check-meta">
+                  <span>
+                    Источник: {aiAnalysisResult.source === "gemini" ? "Gemini Vision" : "локальный fallback"}
+                  </span>
+                  {aiCheckedAt && <span>Последняя проверка: {aiCheckedAt}</span>}
+                </div>
                 <div className={`ai-verification-summary ${aiVerificationSummary.level}`}>
                   <div>
                     <strong>{aiVerificationSummary.title}</strong>
@@ -209,6 +224,15 @@ function SellPage({
                     <span>{aiVerificationSummary.conflicts} конфликт</span>
                   </div>
                 </div>
+                {aiVerificationSummary.reviewRequired && (
+                  <div className="ai-review-banner danger">
+                    <strong>Лот будет отправлен на ручную проверку</strong>
+                    <p>
+                      Спорные признаки увидят администратор и поддержка:
+                      {" "}marinchev.k@yandex.ru. Продавец может исправить анкету или добавить фото-доказательство.
+                    </p>
+                  </div>
+                )}
                 {aiComparisonRows.length > 0 && (
                   <div className="ai-comparison-grid">
                     {aiComparisonRows.map((row) => (

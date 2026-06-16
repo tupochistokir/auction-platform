@@ -1259,6 +1259,7 @@ function App() {
       const ai = data.ai_analysis || {};
       setAiAnalysisResult({
         ...data,
+        checked_at: new Date().toISOString(),
         seller_questionnaire_snapshot: sellForm.questionnaire,
       });
 

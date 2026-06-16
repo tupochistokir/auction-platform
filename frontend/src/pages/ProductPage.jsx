@@ -751,6 +751,15 @@ function ProductPage({
                   <span>{verificationSummary.conflicts || 0} конфликт</span>
                 </div>
               </div>
+              {selectedAuction.verification_report?.review_required && (
+                <div className="ai-review-banner danger">
+                  <strong>Лот ожидает ручной проверки</strong>
+                  <p>
+                    Спорные характеристики отправлены администратору и поддержке.
+                    Покупателю стоит ориентироваться на поля со статусом сверки и запросить подтверждающее фото.
+                  </p>
+                </div>
+              )}
               <div className="verification-list">
                 {verificationRows.map((row) => (
                   <div className={`verification-row ${row.status.tone}`} key={row.field}>

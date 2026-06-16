@@ -207,16 +207,6 @@ export const buildAiVerificationRows = (aiFields = {}, questionnaireSnapshot = {
     const sellerValue = questionnaireSnapshot[field];
     const confidence = Number(item.confidence || 0);
 
-    if (
-      (aiValue === null ||
-        aiValue === undefined ||
-        aiValue === "" ||
-        (Array.isArray(aiValue) && !aiValue.length)) &&
-      isEmptyCompareValue(sellerValue)
-    ) {
-      return null;
-    }
-
     const status = getVerificationStatus(sellerValue, aiValue, confidence);
 
     return {
@@ -228,7 +218,7 @@ export const buildAiVerificationRows = (aiFields = {}, questionnaireSnapshot = {
       status,
       proofHint: AI_PROOF_HINTS[field],
     };
-  }).filter(Boolean);
+  });
 
 export const buildRowsFromVerificationReport = (report = {}) => {
   const rows = Array.isArray(report.fields) ? report.fields : [];
@@ -263,6 +253,7 @@ export const buildVerificationSummary = (rows = []) => {
       verified,
       conflicts,
       warnings,
+      reviewRequired: false,
       title: "AI-сверка не проводилась",
       description: "для паспорта проверки нужно загрузить фото и запустить анализ",
     };
@@ -274,8 +265,9 @@ export const buildVerificationSummary = (rows = []) => {
       verified,
       conflicts,
       warnings,
+      reviewRequired: true,
       title: "Есть характеристики, которые нужно уточнить",
-      description: "по части признаков AI увереннее видит другое значение",
+      description: "по части признаков AI увереннее видит другое значение; лот попадёт на ручную проверку",
     };
   }
 
@@ -285,6 +277,7 @@ export const buildVerificationSummary = (rows = []) => {
       verified,
       conflicts,
       warnings,
+      reviewRequired: false,
       title: "Основные признаки проверены, но есть сомнения",
       description: "для спорных полей лучше добавить отдельное подтверждающее фото",
     };
@@ -295,6 +288,7 @@ export const buildVerificationSummary = (rows = []) => {
     verified,
     conflicts,
     warnings,
+    reviewRequired: false,
     title: "Характеристики сверены с фото",
     description: "анкета продавца совпала с AI-анализом по проверенным признакам",
   };
