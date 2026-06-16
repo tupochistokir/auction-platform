@@ -9,6 +9,8 @@ import ProfilePage from "./pages/ProfilePage";
 import AuthPage from "./pages/AuthPage";
 import FavoritesPage from "./pages/FavoritesPage";
 import OffersPage from "./pages/OffersPage";
+import SecondStoresPage from "./pages/SecondStoresPage";
+import PartnersPage from "./pages/PartnersPage";
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 const AUTH_TOKEN_KEY = "auction_auth_token";
@@ -586,6 +588,15 @@ function App() {
   };
 
   const handleOpenFavoriteAuction = async (auction) => {
+    const loadedAuction = await loadAuctionById(auction.id, false);
+    if (!loadedAuction) return;
+
+    setAuctionIdInUrl(loadedAuction.id);
+    setCatalogView("product");
+    setPage("catalog");
+  };
+
+  const handleOpenAuctionFromSecondStores = async (auction) => {
     const loadedAuction = await loadAuctionById(auction.id, false);
     if (!loadedAuction) return;
 
@@ -1413,6 +1424,14 @@ function App() {
     navigateToPage("catalog", "grid");
   }, [navigateToPage]);
 
+  const goToSecondStores = useCallback(() => {
+    navigateToPage("secondStores");
+  }, [navigateToPage]);
+
+  const goToPartners = useCallback(() => {
+    navigateToPage("partners");
+  }, [navigateToPage]);
+
   const goToSell = useCallback(() => {
     navigateToPage("sell");
   }, [navigateToPage]);
@@ -1448,6 +1467,8 @@ function App() {
         <Header
           page={page}
           goToCatalog={goToCatalog}
+          goToSecondStores={goToSecondStores}
+          goToPartners={goToPartners}
           goToSell={goToSell}
           goToProfile={goToProfile}
           goToFavorites={goToFavorites}
@@ -1497,6 +1518,19 @@ function App() {
               }}
             />
           )
+        )}
+
+        {page === "secondStores" && (
+          <SecondStoresPage
+            auctions={auctions}
+            loading={loading}
+            error={error}
+            handleSelectAuction={handleOpenAuctionFromSecondStores}
+          />
+        )}
+
+        {page === "partners" && (
+          <PartnersPage goToSecondStores={goToSecondStores} goToSell={goToSell} />
         )}
 
         {page === "profile" && (

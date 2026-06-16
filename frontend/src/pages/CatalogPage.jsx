@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { categoryOptions } from "../data/categories";
+import { findSecondStoreForAuction } from "../data/secondStores";
 
 const formatMoney = (value) => {
   const number = Number(value);
@@ -191,6 +192,7 @@ function CatalogPage({
               {filteredAuctions.map((auction) => {
                 const image = auction.image_urls?.[0] || auction.image_url;
                 const questionnaire = auction.questionnaire || {};
+                const secondStore = findSecondStoreForAuction(auction);
                 const categoryLabel =
                   categories.find((category) => category.value === questionnaire.subcategory)
                     ?.label ||
@@ -219,6 +221,9 @@ function CatalogPage({
                         <div className="market-time-badge">
                           {formatRemainingTime(auction.end_time, auction.status)}
                         </div>
+                      )}
+                      {secondStore && (
+                        <div className="market-store-badge">{secondStore.name}</div>
                       )}
                     </div>
 

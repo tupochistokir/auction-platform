@@ -3,6 +3,8 @@ import { memo } from "react";
 function Header({
   page,
   goToCatalog,
+  goToSecondStores,
+  goToPartners,
   goToSell,
   goToProfile,
   goToFavorites,
@@ -38,6 +40,22 @@ function Header({
             type="button"
           >
             Каталог
+          </button>
+
+          <button
+            className={`nav-btn ${page === "secondStores" ? "active" : ""}`}
+            onClick={goToSecondStores}
+            type="button"
+          >
+            Секонды
+          </button>
+
+          <button
+            className={`nav-btn ${page === "partners" ? "active" : ""}`}
+            onClick={goToPartners}
+            type="button"
+          >
+            Партнерам
           </button>
 
           {authUser && (
